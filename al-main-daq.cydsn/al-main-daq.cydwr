@@ -623,6 +623,7 @@
       <Data key="ee6f49e1-34d8-459a-a3a1-25cbf7d9ef9c" value="Clock_4" />
     </Group>
     <Group key="Pin">
+      <Data key="4a0f8fc2-6e89-4289-b2ac-88770fb70364" value="Pin_Mclk_En" />
       <Data key="5a2b6655-5bda-464c-8ea1-d5a4309f61b9" value="Pin_BaroPres2" />
       <Data key="5f10239b-8266-4169-99b6-6c84f9333c15" value="Rx_3" />
       <Data key="06b68f9e-e476-4cd2-9961-a4af63b7ed4c" value="Pin_Sel_Pwr" />
@@ -3747,6 +3748,11 @@
     </Group>
   </Group>
   <Group key="Pin2">
+    <Group key="4a0f8fc2-6e89-4289-b2ac-88770fb70364">
+      <Group key="0">
+        <Data key="Port Format" value="0,0" />
+      </Group>
+    </Group>
     <Group key="5a2b6655-5bda-464c-8ea1-d5a4309f61b9">
       <Group key="0">
         <Data key="Port Format" value="12,2" />
@@ -3904,7 +3910,7 @@
     </Group>
     <Group key="ea141804-bddc-4746-9672-667e792af68a">
       <Group key="0">
-        <Data key="Port Format" value="4,5" />
+        <Data key="Port Format" value="0,1" />
       </Group>
     </Group>
     <Group key="ec6e2a42-b284-4beb-b19c-ffab4b51757d">
@@ -3956,9 +3962,9 @@
     <Data key="CYDEV_VDDA" value="5.0" />
     <Data key="CYDEV_VDDD" value="5.0" />
     <Data key="CYDEV_VDDIO0" value="5.0" />
-    <Data key="CYDEV_VDDIO1" value="5.0" />
+    <Data key="CYDEV_VDDIO1" value="3.3" />
     <Data key="CYDEV_VDDIO2" value="5.0" />
-    <Data key="CYDEV_VDDIO3" value="5.0" />
+    <Data key="CYDEV_VDDIO3" value="3.3" />
     <Data key="CYDEV_WO_NVL_ENABLED" value="False" />
   </Group>
 </DesignWideResources>
