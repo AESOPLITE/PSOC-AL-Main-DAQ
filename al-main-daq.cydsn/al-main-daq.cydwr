@@ -631,13 +631,17 @@
       <Data key="8d318d8b-cf7b-4b6b-b02c-ab1c5c49d0ba" value="Pin_Data" />
       <Data key="20ae1322-3252-4198-8c46-d1f13cb5e614" value="Pin_BaroPresO1" />
       <Data key="42a1c22f-6008-4c86-b67d-059696ab6bd0" value="SCLK_1" />
+      <Data key="46e3fea3-5098-4ff0-963a-3efc2192bc5f" value="Pin_1Hz" />
       <Data key="62c6a881-eadb-4949-9e9f-4433633a3b9b" value="Pin_BaroTempO2" />
       <Data key="67b2a294-8197-4890-915f-bfd555ac4a36" value="Pin_Sel_Ctr3" />
+      <Data key="70ab7c8c-7a7f-4089-b1c2-2712d8405684" value="Pin_LED1" />
       <Data key="264be2d3-9481-494b-8d9c-c1905a45e9cc" value="Pin_2" />
       <Data key="332a34eb-67b8-4d46-87de-0efeb718eb7c" value="Pin_1" />
+      <Data key="386a0273-c79c-405d-9dfc-6b78e8d0018c" value="Pin_UARTRx" />
       <Data key="813cabde-0f27-44ec-b556-fce031b748a6" value="Pin_BaroTempO1" />
       <Data key="833abd8e-8ed0-49a6-87f7-8438e64659e4" value="Pin_Mclk" />
       <Data key="965e2327-8b1d-41c1-a0d7-3c3acab975f0" value="Pin_nRackRst" />
+      <Data key="3016af24-466f-42aa-8406-f537590e52f6" value="Pin_LED2" />
       <Data key="040256ac-f59f-4d1b-95c7-1add247bde30" value="Pin_Tsync" />
       <Data key="95673c29-4c0b-43f8-86ec-47a101973e8d" value="Pin_BaroTemp" />
       <Data key="1425177d-0d0e-4468-8bcc-e638e5509a9b" value="MOSI_1" />
@@ -654,9 +658,10 @@
       <Data key="c0ececa8-913d-4f40-9321-db41f5692432" value="Rx_2" />
       <Data key="c403c62c-0004-482d-bc7c-f5da331abfe3" value="Pin_3" />
       <Data key="cfafc1df-7418-4851-bf12-cac5cbeb0cdf" value="Pin_HRTx" />
-      <Data key="de3c9de2-1e7e-4fc2-8250-645f7cec1e74" value="Tx_3" />
+      <Data key="de3c9de2-1e7e-4fc2-8250-645f7cec1e74" value="Pin_HRTx2" />
       <Data key="e851a3b9-efb8-48be-bbb8-b303b216c393" value="Pin_Cmd" />
       <Data key="ea141804-bddc-4746-9672-667e792af68a" value="Pin_Sel_Ctr1" />
+      <Data key="eb5bf001-72df-41c3-84c8-1c2ef9dbc1d3" value="Pin_LEDedge" />
       <Data key="ec6e2a42-b284-4beb-b19c-ffab4b51757d" value="Pin_nDrdy" />
       <Data key="ed0f7fae-97ed-4e4d-a216-1d86fef9d083" value="Tx_1" />
       <Data key="ed092b9b-d398-4703-be89-cebf998501f6" value="MISO_1" />
@@ -3783,6 +3788,11 @@
         <Data key="Port Format" value="5,2" />
       </Group>
     </Group>
+    <Group key="46e3fea3-5098-4ff0-963a-3efc2192bc5f">
+      <Group key="0">
+        <Data key="Port Format" value="3,3" />
+      </Group>
+    </Group>
     <Group key="62c6a881-eadb-4949-9e9f-4433633a3b9b">
       <Group key="0">
         <Data key="Port Format" value="0,6" />
@@ -3793,6 +3803,11 @@
         <Data key="Port Format" value="0,7" />
       </Group>
     </Group>
+    <Group key="70ab7c8c-7a7f-4089-b1c2-2712d8405684">
+      <Group key="0">
+        <Data key="Port Format" value="4,0" />
+      </Group>
+    </Group>
     <Group key="264be2d3-9481-494b-8d9c-c1905a45e9cc">
       <Group key="0">
         <Data key="Port Format" value="12,1" />
@@ -3801,6 +3816,11 @@
     <Group key="332a34eb-67b8-4d46-87de-0efeb718eb7c">
       <Group key="0">
         <Data key="Port Format" value="1,6" />
+      </Group>
+    </Group>
+    <Group key="386a0273-c79c-405d-9dfc-6b78e8d0018c">
+      <Group key="0">
+        <Data key="Port Format" value="12,6" />
       </Group>
     </Group>
     <Group key="813cabde-0f27-44ec-b556-fce031b748a6">
@@ -3816,6 +3836,11 @@
     <Group key="965e2327-8b1d-41c1-a0d7-3c3acab975f0">
       <Group key="0">
         <Data key="Port Format" value="15,4" />
+      </Group>
+    </Group>
+    <Group key="3016af24-466f-42aa-8406-f537590e52f6">
+      <Group key="0">
+        <Data key="Port Format" value="4,1" />
       </Group>
     </Group>
     <Group key="040256ac-f59f-4d1b-95c7-1add247bde30">
@@ -3911,6 +3936,11 @@
     <Group key="ea141804-bddc-4746-9672-667e792af68a">
       <Group key="0">
         <Data key="Port Format" value="0,1" />
+      </Group>
+    </Group>
+    <Group key="eb5bf001-72df-41c3-84c8-1c2ef9dbc1d3">
+      <Group key="0">
+        <Data key="Port Format" value="5,6" />
       </Group>
     </Group>
     <Group key="ec6e2a42-b284-4beb-b19c-ffab4b51757d">
