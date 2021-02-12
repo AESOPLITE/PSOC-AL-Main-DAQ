@@ -654,6 +654,7 @@
       <Data key="aba166a4-19f9-44be-8b89-2e95ac08202e" value="Pin_1" />
       <Data key="adef25f7-05bd-4a6f-9924-5d376aeb4f85" value="Pin_BaroPresO2" />
       <Data key="b4cbf60d-4f82-4fca-b8d1-7620aea0c90f" value="Pin_Load" />
+      <Data key="b2964f7c-ff07-4366-a39a-a7e011ac28c1" value="SPI_SSN" />
       <Data key="bb302a8c-9cc5-4d9b-8774-6e27a92cd280" value="Pin_Sel_Tkr" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/8b77a6c4-10a0-4390-971c-672353e2a49c" value="USBUART_CD_Dm" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/618a72fc-5ddd-4df5-958f-a3d55102db42" value="USBUART_CD_Dp" />
@@ -3906,6 +3907,11 @@
     <Group key="b4cbf60d-4f82-4fca-b8d1-7620aea0c90f">
       <Group key="0">
         <Data key="Port Format" value="6,4" />
+      </Group>
+    </Group>
+    <Group key="b2964f7c-ff07-4366-a39a-a7e011ac28c1">
+      <Group key="0">
+        <Data key="Port Format" value="3,1" />
       </Group>
     </Group>
     <Group key="bb302a8c-9cc5-4d9b-8774-6e27a92cd280">
