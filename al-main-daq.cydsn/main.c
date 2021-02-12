@@ -177,7 +177,7 @@ uint8 buffCmdRxCRead[COMMAND_SOURCES];
 //	FDB	$0AB6  ;10sec Power R/O
 
 //AESOPLite Initialization Commands
-#define NUMBER_INIT_CMDS	32
+#define NUMBER_INIT_CMDS	(32 + 39)
 uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 	{0xA7, 0x35}, //T1 1431.6 High Voltage
 	{0xDD, 0x36}, //T2 1860.7
@@ -210,7 +210,48 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 	{0x07, 0x79}, //No Input
 	{0xF8, 0x38}, //T1 T2 T3 Coincidence
 	{0x0A, 0xB7}, //10sec counter R/O
-	{0x0A, 0xB6} }; //10sec Power R/O
+	{0x0A, 0xB6},  //10sec Power R/O
+    // event PSOC DAC Trigger Setup
+	{0x04, 0x23},  //Header for ToF DAC
+	{0x01, 0x21},  //Channel ToF 1 
+	{0x00, 0x22},  //DAC Byte MSB
+	{0x40, 0x23},  //DAC Byte LSB
+    {0x04, 0x23},  //Header for ToF DAC
+	{0x02, 0x21},  //Channel ToF 2
+	{0x00, 0x22},  //DAC Byte MSB
+	{0x40, 0x23},  //DAC Byte LSB
+    {0x01, 0x23},  //Header for DAC Threshold Set
+	{0x05, 0x21},  //Channel 5
+	{0x00, 0x22},  //DAC Byte MSB
+	{0x3C, 0x23},  //DAC Byte LSB
+    {0x01, 0x22},  //Header for DAC Threshold Set
+	{0x01, 0x21},  //Channel 1 
+	{0x14, 0x22},  //DAC Byte
+    {0x01, 0x22},  //Header for DAC Threshold Set
+	{0x02, 0x21},  //Channel 2 
+	{0x14, 0x22},  //DAC Byte
+    {0x01, 0x22},  //Header for DAC Threshold Set
+	{0x03, 0x21},  //Channel 3 
+	{0x14, 0x22},  //DAC Byte
+    {0x01, 0x22},  //Header for DAC Threshold Set
+	{0x04, 0x21},  //Channel 4 
+	{0x14, 0x22},  //DAC Byte    
+    {0x36, 0x22},  //Header for Trigger Mask Set
+	{0x01, 0x21},  //Mask 1 
+	{0x0D, 0x22},  //Trigger Mask 0D T3
+    {0x39, 0x22},  //Header for Trigger Prescale Set
+    {0x02, 0x21},  //PMT
+	{0x04, 0x22},  //Prescale by 4 
+    {0x3A, 0x21},  //Header for Trigger Window Set
+    {0x18, 0x21},  //Trigger Window Data
+    {0x36, 0x22},  //Header for Trigger Mask Set
+    {0x00, 0x21},  //Mask 2 
+	{0x00, 0x22},  //Trigger Mask 00 none
+    {0x30, 0x21},  //Header for Output Mode Set
+	{0x00, 0x21},  //0 SPI output 
+    {0x3B, 0x21},  //Header Trigger Enable Set
+	{0x01, 0x21},  //Trigger Enabled
+    }; //End init cmds
 #define CMD_BUFFER_SIZE (NUMBER_INIT_CMDS + NUMBER_INIT_CMDS)
 uint8 buffCmd[COMMAND_SOURCES][CMD_BUFFER_SIZE][2];
 uint8 readBuffCmd[COMMAND_SOURCES];// = 0;
