@@ -960,10 +960,10 @@ int main(void)
     {
         orderBuffCmd[i] = i; //read the cmd buff in order
     }
-    memcpy(&buffCmd[0][0][0], initCmd, (NUMBER_INIT_CMDS * 2));
-    writeBuffCmd[0] = NUMBER_INIT_CMDS;
-    memcpy(&buffCmd[1][0][0], initCmd, (NUMBER_INIT_CMDS * 2));
-    writeBuffCmd[1] = NUMBER_INIT_CMDS;
+//    memcpy(&buffCmd[0][0][0], initCmd, (NUMBER_INIT_CMDS * 2));
+//    writeBuffCmd[0] = NUMBER_INIT_CMDS;
+//    memcpy(&buffCmd[1][0][0], initCmd, (NUMBER_INIT_CMDS * 2));
+//    writeBuffCmd[1] = NUMBER_INIT_CMDS;
     
 //	buffUsbTx[3] = 0x55;
 //	buffUsbTx[4] = 0xAA;
