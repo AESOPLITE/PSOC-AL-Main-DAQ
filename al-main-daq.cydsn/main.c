@@ -985,6 +985,7 @@ int main(void)
     
 	SPIM_BP_Start();
 	SPIM_BP_ClearFIFO();
+    SPIS_Ev_Start();
 //	USBUART_CD_Start(USBFS_DEVICE, USBUART_CD_5V_OPERATION);
 	USBUART_CD_Start(USBFS_DEVICE, USBUART_CD_3V_OPERATION);
 	UART_Cmd_Start();
