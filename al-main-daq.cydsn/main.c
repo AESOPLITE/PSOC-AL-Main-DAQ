@@ -939,8 +939,8 @@ int main(void)
     
     /* Variable declarations for DMA_LR_Cmd_1 */
     /* Move these variable declarations to the top of the function */
-    uint8 DMA_LR_Cmd_1_Chan;
-    uint8 DMA_LR_Cmd_1_TD[1];
+//    uint8 DMA_LR_Cmd_1_Chan;
+//    uint8 DMA_LR_Cmd_1_TD[1];
     
 	memset(buffSPIRead, 0, NUM_SPI_DEV);
 	memset(buffSPIWrite, 0, NUM_SPI_DEV);
