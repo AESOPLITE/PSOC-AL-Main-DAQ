@@ -22,6 +22,8 @@
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
 #define WRAPINC(a,b) ((a + 1) % (b))
 #define WRAP3INC(a,b) ((a + 3) % (b))
+#define WRAP(a,b) ((a) % (b)) //Macro to bring new calculated index a into the bounds of a circular buffer of size b
+
 // From LROA103.ASM
 //;The format for the serial command is:
 //; S1234<sp>xyWS1234<sp>xyWS1234<sp>xyW<cr><lf>
@@ -48,7 +50,9 @@
 #define FALSE  0
 #define TRUE   1
 #define SPI_BUFFER_SIZE  (512u)
+#define EV_BUFFER_SIZE  (512u)
 typedef uint16 SPIBufferIndex; //type of variable indexing the SPI buffer. should be uint8 or uint16 based on size
+typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. should be uint16
 //uint8 cmdBuff[CMDBUFFSIZE];
 //uint8 iCmdBuff = CMDBUFFSIZE - 1;
 
@@ -84,6 +88,9 @@ SPIBufferIndex buffSPIRead[NUM_SPI_DEV];
 SPIBufferIndex buffSPIWrite[NUM_SPI_DEV];
 SPIBufferIndex buffSPICurHead[NUM_SPI_DEV]; //Header of the current packet
 SPIBufferIndex buffSPICompleteHead[NUM_SPI_DEV]; //Header of the latest complete packet
+uint8 buffEv[SPI_BUFFER_SIZE];
+EvBufferIndex buffEvRead;
+EvBufferIndex buffEvWrite;
 
 enum readStatus {CHECKDATA, READOUTDATA, EORFOUND, EORERROR};
 enum commandStatus {WAIT_DLE, CHECK_ID, CHECK_LEN, READ_CMD, CHECK_ETX_CMD, CHECK_ETX_REQ};
@@ -100,6 +107,7 @@ volatile uint8 lastDrdyCap = 0u;
  
 const uint8 frameSync[2] = {0x55u, 0xABu};
 uint32 frameCnt = 0u;
+#define DATA_BYTES_FRAME 27
 
 typedef struct PacketLocation {
 	SPIBufferIndex index;
@@ -676,6 +684,27 @@ CY_ISR(ISRWriteSPI)
 		Timer_SelLow_Stop();
 	}
 }
+CY_ISR(ISRReadEv)
+{
+	uint8 intState = CyEnterCriticalSection(); //TODO consider the mutex
+	EvBufferIndex tempBuffWrite = buffEvWrite;
+	uint8 tempStatus = SPIS_Ev_ReadStatus();
+	if (0u != (SPIM_BP_STS_RX_FIFO_NOT_EMPTY & tempStatus)) 
+	{
+        buffEv[tempBuffWrite] = SPIM_BP_ReadRxData();
+		buffSPIWrite[iSPIDev] = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE);
+        if (tempBuffWrite == buffEvRead) buffEvRead = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE); //Discard oldest byte
+		while (SPIS_Ev_GetRxBufferSize()) //get all availiable bytes
+		{
+			buffEv[tempBuffWrite] = SPIM_BP_ReadRxData();
+            buffSPIWrite[iSPIDev] = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE);
+            if (tempBuffWrite == buffEvRead) buffEvRead = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE); //Discard oldest byte
+		}
+		buffEvWrite = tempBuffWrite;
+	}
+
+	CyExitCriticalSection(intState);
+}
 CY_ISR(ISRDrdyCap)
 {
 	uint8 intState = CyEnterCriticalSection();
@@ -743,7 +772,7 @@ CY_ISR(ISRHRTx)
 			ibuffFrame++;
 		}
 		uint8 nullFrame = FALSE;
-		SPIBufferIndex nDataBytesLeft = 27;
+		EvBufferIndex nDataBytesLeft = DATA_BYTES_FRAME;
 //		memcpy( (buffFrame + ibuffFrame), &(frameCnt), 3);
 //		ibuffFrame += 3;
 		frameCnt++;
@@ -756,7 +785,36 @@ CY_ISR(ISRHRTx)
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = '+';
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = packetFIFOTail;
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = '}';
-		if (packetFIFOHead == packetFIFOTail)
+        if (DATA_BYTES_FRAME <= WRAP(EV_BUFFER_SIZE - buffEvRead + buffEvWrite, EV_BUFFER_SIZE)) //Full frame of event data
+        {
+            EvBufferIndex nBytes;
+            EvBufferIndex curRead = buffEvRead;
+			EvBufferIndex curEOR = WRAP(curRead + (DATA_BYTES_FRAME - 1), EV_BUFFER_SIZE);
+			
+			if (curEOR > curRead)
+			{
+				nBytes = DATA_BYTES_FRAME;
+			}
+			else
+			{
+				nBytes = EV_BUFFER_SIZE - curRead;
+			}
+			memcpy( (buffFrame + ibuffFrame), buffEv + curRead, nBytes);
+			ibuffFrame += nBytes;
+			nDataBytesLeft -= nBytes;
+//				curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
+
+			if (nDataBytesLeft > 0) //more data to fill frame
+			{
+                memcpy( (buffFrame + ibuffFrame), buffEv, nDataBytesLeft);
+			    ibuffFrame += nDataBytesLeft;
+			    nDataBytesLeft = 0;
+			}
+			curRead = WRAPINC(curEOR, EV_BUFFER_SIZE);
+            //TODO MUTEX or volatile
+            buffEvRead = curRead;
+        }
+		else if (packetFIFOHead == packetFIFOTail)
 		{
 			nullFrame = TRUE;
 		}
@@ -941,7 +999,7 @@ int main(void)
     /* Move these variable declarations to the top of the function */
 //    uint8 DMA_LR_Cmd_1_Chan;
 //    uint8 DMA_LR_Cmd_1_TD[1];
-    
+    buffEvRead = buffEvWrite = 0;
 	memset(buffSPIRead, 0, NUM_SPI_DEV);
 	memset(buffSPIWrite, 0, NUM_SPI_DEV);
 	memset(buffSPICurHead, 0, NUM_SPI_DEV);
@@ -1018,7 +1076,7 @@ int main(void)
 	isr_W_StartEx(ISRWriteSPI);
 	isr_C_StartEx(ISRDrdyCap);
 	isr_Cm_StartEx(ISRCheckCmd);
-	
+	isr_E_StartEx(ISRReadEv);
 	
 	
 //	Timer_Tsync_Start();
