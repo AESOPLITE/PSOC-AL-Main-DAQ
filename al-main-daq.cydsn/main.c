@@ -258,7 +258,8 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
     {0x30, 0x21},  //Header for Output Mode Set
 	{0x00, 0x21},  //0 SPI output 
     {0x3B, 0x21},  //Header Trigger Enable Set
-	{0x01, 0x21},  //Trigger Enabled
+//	{0x01, 0x21},  //Trigger Enabled
+	{0x03, 0x20},  //Read Errors DEBUG
     }; //End init cmds
 #define CMD_BUFFER_SIZE (NUMBER_INIT_CMDS + NUMBER_INIT_CMDS)
 uint8 buffCmd[COMMAND_SOURCES][CMD_BUFFER_SIZE][2];
