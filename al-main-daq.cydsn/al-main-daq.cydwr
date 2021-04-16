@@ -627,10 +627,11 @@
       <Data key="5a2b6655-5bda-464c-8ea1-d5a4309f61b9" value="Pin_BaroPres2" />
       <Data key="5f10239b-8266-4169-99b6-6c84f9333c15" value="Rx_3" />
       <Data key="06b68f9e-e476-4cd2-9961-a4af63b7ed4c" value="Pin_Sel_Pwr" />
+      <Data key="6f7d91a0-fb62-4100-89a7-5953ccffdbf0" value="Pin_Sel_HV1" />
       <Data key="8b8628b1-da2a-4b35-bb84-d35d5130f237" value="Rx_1" />
       <Data key="8d318d8b-cf7b-4b6b-b02c-ab1c5c49d0ba" value="Pin_Data" />
       <Data key="20ae1322-3252-4198-8c46-d1f13cb5e614" value="Pin_BaroPresO1" />
-      <Data key="42a1c22f-6008-4c86-b67d-059696ab6bd0" value="SCLK_1" />
+      <Data key="42a1c22f-6008-4c86-b67d-059696ab6bd0" value="SCLK_Ev" />
       <Data key="46e3fea3-5098-4ff0-963a-3efc2192bc5f" value="Pin_1Hz" />
       <Data key="62c6a881-eadb-4949-9e9f-4433633a3b9b" value="Pin_BaroTempO2" />
       <Data key="67b2a294-8197-4890-915f-bfd555ac4a36" value="Pin_Sel_Ctr3" />
@@ -645,7 +646,8 @@
       <Data key="09365b50-5881-4294-bfb1-eb2228e50453" value="Rx_4" />
       <Data key="040256ac-f59f-4d1b-95c7-1add247bde30" value="Pin_Tsync" />
       <Data key="95673c29-4c0b-43f8-86ec-47a101973e8d" value="Pin_BaroTemp" />
-      <Data key="1425177d-0d0e-4468-8bcc-e638e5509a9b" value="MOSI_1" />
+      <Data key="1425177d-0d0e-4468-8bcc-e638e5509a9b" value="MOSI_Ev" />
+      <Data key="4324378d-1c20-4690-b5ed-e39f3ef7fd5d" value="Pin_Sel_HV2" />
       <Data key="19784692-9189-4e0b-b071-20d2649b0909" value="Pin_SRclk" />
       <Data key="64780476-c80a-479f-bfe7-e38df7ab7085" value="Pin_HRTx2temp" />
       <Data key="77715107-f8d5-47e5-a629-0fb83101ac6b" value="Pin_5vBack" />
@@ -654,7 +656,7 @@
       <Data key="aba166a4-19f9-44be-8b89-2e95ac08202e" value="Pin_1" />
       <Data key="adef25f7-05bd-4a6f-9924-5d376aeb4f85" value="Pin_BaroPresO2" />
       <Data key="b4cbf60d-4f82-4fca-b8d1-7620aea0c90f" value="Pin_Load" />
-      <Data key="b2964f7c-ff07-4366-a39a-a7e011ac28c1" value="SPI_SSN" />
+      <Data key="b2964f7c-ff07-4366-a39a-a7e011ac28c1" value="SPI_SSN_Ev" />
       <Data key="bb302a8c-9cc5-4d9b-8774-6e27a92cd280" value="Pin_Sel_Tkr" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/8b77a6c4-10a0-4390-971c-672353e2a49c" value="USBUART_CD_Dm" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/618a72fc-5ddd-4df5-958f-a3d55102db42" value="USBUART_CD_Dp" />
@@ -670,7 +672,7 @@
       <Data key="eb5bf001-72df-41c3-84c8-1c2ef9dbc1d3" value="Pin_LEDedge1" />
       <Data key="ec6e2a42-b284-4beb-b19c-ffab4b51757d" value="Pin_nDrdy" />
       <Data key="ed0f7fae-97ed-4e4d-a216-1d86fef9d083" value="Tx_1" />
-      <Data key="ed092b9b-d398-4703-be89-cebf998501f6" value="MISO_1" />
+      <Data key="ed092b9b-d398-4703-be89-cebf998501f6" value="MISO_Ev" />
       <Data key="f7990b5d-a1e5-4622-b57a-ddf3433a04ea" value="Pin_Sel_PHA" />
       <Data key="fd873ef1-0b0d-43b2-8667-7fda7a28e573" value="Pin_BaroPres" />
     </Group>
@@ -3774,6 +3776,11 @@
         <Data key="Port Format" value="0,6" />
       </Group>
     </Group>
+    <Group key="6f7d91a0-fb62-4100-89a7-5953ccffdbf0">
+      <Group key="0">
+        <Data key="Port Format" value="4,4" />
+      </Group>
+    </Group>
     <Group key="8b8628b1-da2a-4b35-bb84-d35d5130f237">
       <Group key="0">
         <Data key="Port Format" value="2,1" />
@@ -3867,6 +3874,11 @@
     <Group key="1425177d-0d0e-4468-8bcc-e638e5509a9b">
       <Group key="0">
         <Data key="Port Format" value="5,1" />
+      </Group>
+    </Group>
+    <Group key="4324378d-1c20-4690-b5ed-e39f3ef7fd5d">
+      <Group key="0">
+        <Data key="Port Format" value="4,3" />
       </Group>
     </Group>
     <Group key="19784692-9189-4e0b-b071-20d2649b0909">
@@ -3971,7 +3983,7 @@
     </Group>
     <Group key="ea141804-bddc-4746-9672-667e792af68a">
       <Group key="0">
-        <Data key="Port Format" value="0,1" />
+        <Data key="Port Format" value="4,5" />
       </Group>
     </Group>
     <Group key="eb5bf001-72df-41c3-84c8-1c2ef9dbc1d3">
