@@ -690,16 +690,18 @@ CY_ISR(ISRReadEv)
 	uint8 intState = CyEnterCriticalSection(); //TODO consider the mutex
 	EvBufferIndex tempBuffWrite = buffEvWrite;
 	uint8 tempStatus = SPIS_Ev_ReadStatus();
-	if (0u != (SPIM_BP_STS_RX_FIFO_NOT_EMPTY & tempStatus)) 
+	if (0u != (SPIS_Ev_STS_RX_BUF_NOT_EMPTY & tempStatus)) 
 	{
-        buffEv[tempBuffWrite] = SPIM_BP_ReadRxData();
-		buffSPIWrite[iSPIDev] = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE);
+        buffEv[tempBuffWrite] = SPIS_Ev_ReadRxData();
+		tempBuffWrite = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE);
         if (tempBuffWrite == buffEvRead) buffEvRead = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE); //Discard oldest byte
-		while (SPIS_Ev_GetRxBufferSize()) //get all availiable bytes
+		tempStatus = SPIS_Ev_GetRxBufferSize();
+        while (tempStatus) //get all availiable bytes
 		{
-			buffEv[tempBuffWrite] = SPIM_BP_ReadRxData();
-            buffSPIWrite[iSPIDev] = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE);
+			buffEv[tempBuffWrite] = SPIS_Ev_ReadRxData();
+            tempBuffWrite = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE);
             if (tempBuffWrite == buffEvRead) buffEvRead = WRAPINC(tempBuffWrite, EV_BUFFER_SIZE); //Discard oldest byte
+            tempStatus = SPIS_Ev_GetRxBufferSize();
 		}
 		buffEvWrite = tempBuffWrite;
 	}
