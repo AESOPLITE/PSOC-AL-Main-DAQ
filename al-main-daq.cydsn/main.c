@@ -1055,6 +1055,8 @@ int main(void)
 	UART_LR_Cmd_2_Start();
 	UART_LR_Data_Start();
     
+    Pin_Sel_HV1_Write(0);
+    Pin_Sel_HV2_Write(0);
    
 		   /* Service USB CDC when device is configured. */
 //	if ((0u != USBUART_CD_GetConfiguration()) && (iBuffUsbTx > 0))
