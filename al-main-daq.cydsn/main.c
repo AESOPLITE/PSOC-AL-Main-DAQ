@@ -103,7 +103,7 @@ uint8 curCmd[COMMAND_CHARS+1]; //one extra char for null
 uint8 iCurCmd = 0u;
 volatile uint8 timeoutDrdy = FALSE;
 volatile uint8 lastDrdyCap = 0u;
-#define MIN_DRDY_CYCLES 8
+#define MIN_DRDY_CYCLES 4 //8 //might need  Fster clock since the master clock generates noise the noise on this line
  
 const uint8 frameSync[2] = {0x55u, 0xABu};
 uint32 frameCnt = 0u;
