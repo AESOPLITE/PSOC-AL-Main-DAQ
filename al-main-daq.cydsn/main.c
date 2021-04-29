@@ -101,9 +101,9 @@ uint8 cmdRxC[COMMAND_SOURCES][2];
 #define COMMAND_CHARS	(4u)
 uint8 curCmd[COMMAND_CHARS+1]; //one extra char for null
 uint8 iCurCmd = 0u;
-volatile uint8 timeoutDrdy = FALSE;
-volatile uint8 lastDrdyCap = 0u;
-#define MIN_DRDY_CYCLES 4 //8 //might need  Fster clock since the master clock generates noise the noise on this line
+//volatile uint8 timeoutDrdy = FALSE;
+//volatile uint8 lastDrdyCap = 0u;
+//#define MIN_DRDY_CYCLES 4 //8 //might need  Fster clock since the master clock generates noise the noise on this line
  
 const uint8 frameSync[2] = {0x55u, 0xABu};
 uint32 frameCnt = 0u;
@@ -708,43 +708,43 @@ CY_ISR(ISRReadEv)
 
 	CyExitCriticalSection(intState);
 }
-CY_ISR(ISRDrdyCap)
-{
-	uint8 intState = CyEnterCriticalSection();
-	uint8 tempStatus = Timer_Drdy_ReadStatusRegister();
-	
-	if ((0u != (tempStatus & Timer_Drdy_STATUS_CAPTURE)) && (0u != (tempStatus & Timer_Drdy_STATUS_FIFONEMP)))
-	{
-		uint8 tempCap;
-		while(0u != (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP))
-		{
-			tempCap = Timer_Drdy_ReadCapture();
-			if (0u == Pin_nDrdy_Read())
-			{
-				lastDrdyCap = tempCap;
-			}
-		}
-	}
-	if (0u != (tempStatus & Timer_Drdy_STATUS_TC))
-	{
-//		if ((0u != Pin_nDrdy_Read()) || (lastDrdyCap < MIN_DRDY_CYCLES))
+//CY_ISR(ISRDrdyCap)
+//{
+//	uint8 intState = CyEnterCriticalSection();
+//	uint8 tempStatus = Timer_Drdy_ReadStatusRegister();
+//	
+//	if ((0u != (tempStatus & Timer_Drdy_STATUS_CAPTURE)) && (0u != (tempStatus & Timer_Drdy_STATUS_FIFONEMP)))
+//	{
+//		uint8 tempCap;
+//		while(0u != (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP))
 //		{
-			timeoutDrdy = TRUE;
-			lastDrdyCap = Timer_Drdy_ReadPeriod();
+//			tempCap = Timer_Drdy_ReadCapture();
+//			if (0u == Pin_nDrdy_Read())
+//			{
+//				lastDrdyCap = tempCap;
+//			}
 //		}
-//		else
-//		{
-//			Timer_Drdy_WriteCounter(Timer_Drdy_ReadPeriod());
-//		if(0u != (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
-//		{
-//			Timer_Drdy_Stop();
-//		}
-//			Timer_Drdy_Start();
-//		}
-		
-	}
-	CyExitCriticalSection(intState);
-}
+//	}
+//	if (0u != (tempStatus & Timer_Drdy_STATUS_TC))
+//	{
+////		if ((0u != Pin_nDrdy_Read()) || (lastDrdyCap < MIN_DRDY_CYCLES))
+////		{
+//			timeoutDrdy = TRUE;
+//			lastDrdyCap = Timer_Drdy_ReadPeriod();
+////		}
+////		else
+////		{
+////			Timer_Drdy_WriteCounter(Timer_Drdy_ReadPeriod());
+////		if(0u != (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
+////		{
+////			Timer_Drdy_Stop();
+////		}
+////			Timer_Drdy_Start();
+////		}
+//		
+//	}
+//	CyExitCriticalSection(intState);
+//}
 
 CY_ISR(ISRHRTx)
 {
@@ -1068,7 +1068,7 @@ int main(void)
 //			USBUART_CD_PutChar('S'); //TODO  different or eliminate startup message
 //		}
 //	}
-	lastDrdyCap = Timer_Drdy_ReadPeriod();
+//	lastDrdyCap = Timer_Drdy_ReadPeriod();
 	
 	Control_Reg_R_Write(0x00u);
 
@@ -1079,14 +1079,14 @@ int main(void)
 	
 	isr_R_StartEx(ISRReadSPI);
 	isr_W_StartEx(ISRWriteSPI);
-	isr_C_StartEx(ISRDrdyCap);
+//	isr_C_StartEx(ISRDrdyCap);
 	isr_Cm_StartEx(ISRCheckCmd);
 	isr_E_StartEx(ISRReadEv);
 	
 	
 //	Timer_Tsync_Start();
 //	Timer_SelLow_Start();
-	Timer_Drdy_Start();
+//	Timer_Drdy_Start();
 
 	Counter_BaroPres1_Start();
 	Counter_BaroTemp1_Start();
@@ -1240,10 +1240,11 @@ int main(void)
 //				{
 					Control_Reg_CD_Write(0x01u);
 //					lastDrdyCap = Timer_Drdy_ReadPeriod();
-					Timer_Drdy_Start();
+//					Timer_Drdy_Start();
 					
 //				}
-				if (TRUE == timeoutDrdy)
+                if(FALSE) //TODO New gltch filter test
+//				if (TRUE == timeoutDrdy)
 				{  
 //					if (iSPIDev >= (NUM_SPI_DEV - 1))
 //					{
@@ -1260,21 +1261,23 @@ int main(void)
 					Control_Reg_SS_Write(tabSPISel[iSPIDev]);
 					Control_Reg_CD_Write(1u);
 					
-					timeoutDrdy = FALSE;
+//					timeoutDrdy = FALSE;
 //					lastDrdyCap = Timer_Drdy_ReadPeriod();
-					Timer_Drdy_Stop();
-					Timer_Drdy_Start();
+//					Timer_Drdy_Stop();
+//					Timer_Drdy_Start();
 //					tempSpinTimer = 0;
 //					}
 				}
-				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
+                else if(FALSE) //TODO New gltch filter test
+//				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
 				{
-					uint8 tempLastDrdyCap = lastDrdyCap;
+//					uint8 tempLastDrdyCap = lastDrdyCap;
 //					Timer_Drdy_SoftwareCapture();
-					uint8 tempCounter = Timer_Drdy_ReadCounter();
-					if (tempCounter > tempLastDrdyCap) tempCounter = 0;
+//					uint8 tempCounter = Timer_Drdy_ReadCounter();
+//					if (tempCounter > tempLastDrdyCap) tempCounter = 0;
 					//if ((0u == Pin_nDrdy_Read()) && (0u != (SPIM_BP_TX_STATUS_REG & SPIM_BP_STS_TX_FIFO_EMPTY)))
-					if ((tempLastDrdyCap - tempCounter) >= MIN_DRDY_CYCLES)
+                    if(FALSE) //TODO New gltch filter test
+//					if ((tempLastDrdyCap - tempCounter) >= MIN_DRDY_CYCLES)
 					{
 						SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 						Control_Reg_CD_Write(0x03u);
@@ -1302,8 +1305,8 @@ int main(void)
 						
 						//continueRead = TRUE;
 						readStatusBP = READOUTDATA;
-						timeoutDrdy = FALSE;
-						lastDrdyCap = Timer_Drdy_ReadPeriod();
+//						timeoutDrdy = FALSE;
+//						lastDrdyCap = Timer_Drdy_ReadPeriod();
 						
 //						if(0u != (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
 //						{   
@@ -1311,13 +1314,13 @@ int main(void)
 //						}
 //						tempSpinTimer = 0;
 					}
-					else
+					else //TODO New gltch filter test
 					{
-						buffUsbTxDebug[iBuffUsbTxDebug++] = '=';
-						buffUsbTxDebug[iBuffUsbTxDebug++] = tempLastDrdyCap;
-						buffUsbTxDebug[iBuffUsbTxDebug++] = '-';
-						buffUsbTxDebug[iBuffUsbTxDebug++] = tempCounter;
-						lastDrdyCap = tempLastDrdyCap;
+//						buffUsbTxDebug[iBuffUsbTxDebug++] = '=';
+//						buffUsbTxDebug[iBuffUsbTxDebug++] = tempLastDrdyCap;
+//						buffUsbTxDebug[iBuffUsbTxDebug++] = '-';
+//						buffUsbTxDebug[iBuffUsbTxDebug++] = tempCounter;
+//						lastDrdyCap = tempLastDrdyCap;
 					}
 				}
 				
