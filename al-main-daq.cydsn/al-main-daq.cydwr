@@ -666,6 +666,7 @@
       <Data key="d40b9a74-26b2-4480-a28b-c5e271509d66" value="Rx_3" />
       <Data key="dae1eddf-36d4-44d3-9fce-59841a97eeb7" value="Pin_HRTx2temp_1" />
       <Data key="de3c9de2-1e7e-4fc2-8250-645f7cec1e74" value="Pin_HRTx2" />
+      <Data key="def50a59-51c4-4c1c-aae6-55544c94c918" value="Pin_nDrdy_Filter" />
       <Data key="e8fe5474-ce4a-40e0-8061-f2927eaff513" value="Pin_LEDedge2" />
       <Data key="e851a3b9-efb8-48be-bbb8-b303b216c393" value="Pin_Cmd" />
       <Data key="ea141804-bddc-4746-9672-667e792af68a" value="Pin_Sel_Ctr1" />
@@ -3969,6 +3970,11 @@
     <Group key="de3c9de2-1e7e-4fc2-8250-645f7cec1e74">
       <Group key="0">
         <Data key="Port Format" value="6,3" />
+      </Group>
+    </Group>
+    <Group key="def50a59-51c4-4c1c-aae6-55544c94c918">
+      <Group key="0">
+        <Data key="Port Format" value="5,3" />
       </Group>
     </Group>
     <Group key="e8fe5474-ce4a-40e0-8061-f2927eaff513">
