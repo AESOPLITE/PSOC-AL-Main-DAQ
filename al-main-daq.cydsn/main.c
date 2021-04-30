@@ -150,7 +150,7 @@ uint8 buffCmdRxCRead[COMMAND_SOURCES];
 
 
 //const uint8 continueReadFlags = (SPIM_BP_STS_SPI_IDLE | SPIM_BP_STS_TX_FIFO_EMPTY);
-//volatile uint8 continueRead = FALSE;
+volatile uint8 continueRead = FALSE;
 
 
 //;AESOPLite Initialization Commands
@@ -641,6 +641,8 @@ CY_ISR(ISRReadSPI)
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 	uint8 tempStatus = SPIM_BP_ReadStatus();
 	Control_Reg_LoadPulse_Write(0x01);
+    Timer_SelLow_Start();
+    continueRead = TRUE;
 	if (tempBuffWrite != buffSPICurHead[iSPIDev]) //Check if buffer is full
 	{
 		buffSPIWrite[iSPIDev] = WRAPINC(tempBuffWrite, SPI_BUFFER_SIZE);
@@ -648,19 +650,19 @@ CY_ISR(ISRReadSPI)
 		if ((0u != tempnDrdy) || ((WRAP3INC(buffSPIWrite[iSPIDev], SPI_BUFFER_SIZE)) == buffSPIRead[iSPIDev]))
 //		if ((buffSPIWrite[iSPIDev] == buffSPIRead[iSPIDev]))
 		{
-			//continueRead = FALSE;
-			Control_Reg_CD_Write(0x00u);
+			continueRead = FALSE;
+//			Control_Reg_CD_Write(0x00u);
 //			SPIM_BP_ClearTxBuffer();
 		}
-		else 
-		{
-			Control_Reg_CD_Write(0x02u);
-			Timer_SelLow_Start();
+//		else 
+//		{
+//			Control_Reg_CD_Write(0x02u);
+//			Timer_SelLow_Start();
 //			if (0u != (SPIM_BP_STS_TX_FIFO_EMPTY & tempStatus))
 //			{
 //				SPIM_BP_WriteTxData(FILLBYTE);
 //			}
-		}
+//		}
 //		tempStatus = SPIM_BP_ReadStatus();
 		if (0u != (SPIM_BP_STS_RX_FIFO_NOT_EMPTY & tempStatus))
 		{
@@ -671,7 +673,8 @@ CY_ISR(ISRReadSPI)
 	}
 	else 
 	{
-		Control_Reg_CD_Write(0x00u);
+//		Control_Reg_CD_Write(0x00u);
+        continueRead = FALSE;
 //		SPIM_BP_ClearTxBuffer();
 //		tempStatus = SPIM_BP_ReadStatus();
 	}
@@ -680,15 +683,26 @@ CY_ISR(ISRReadSPI)
 }
 CY_ISR(ISRWriteSPI)
 {
+    uint8 intState = CyEnterCriticalSection();
 	uint8 tempStatus = Timer_SelLow_ReadStatusRegister();
-	if (0u != (SPIM_BP_STS_TX_FIFO_EMPTY & SPIM_BP_TX_STATUS_REG))
-	{
-		SPIM_BP_WriteTxData(FILLBYTE);
-	}
+//	if (0u != (SPIM_BP_STS_TX_FIFO_EMPTY & SPIM_BP_TX_STATUS_REG))
+//	{
+//		SPIM_BP_WriteTxData(FILLBYTE);
+//	}
+    if(continueRead)
+    {
+        SPIM_BP_WriteTxData(FILLBYTE);
+        Control_Reg_CD_Write(0x02u);
+    }
+    else
+    {
+        Control_Reg_CD_Write(0x00u);
+    }
 	if(0u != (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE ))
 	{
 		Timer_SelLow_Stop();
 	}
+    CyExitCriticalSection(intState);
 }
 CY_ISR(ISRReadEv)
 {
