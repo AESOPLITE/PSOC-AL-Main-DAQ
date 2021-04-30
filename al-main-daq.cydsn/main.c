@@ -72,7 +72,9 @@ uint8 iSPIDev = 0u;
 #define CTR1_SEL	(0x03u)
 #define TKR_SEL		(0x0Bu)
 #define CTR3_SEL	(0x0Cu)
-const uint8 tabSPISel[NUM_SPI_DEV] = {POW_SEL, PHA_SEL, CTR1_SEL, TKR_SEL, CTR3_SEL};
+//const uint8 tabSPISel[NUM_SPI_DEV] = {POW_SEL, PHA_SEL, CTR1_SEL, TKR_SEL, CTR3_SEL};
+const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, CTR1_SEL, 0, CTR3_SEL};
+//const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, 0, 0, 0}; //DEBUG
 #define NULL_HEAD	(0xF9u)
 #define POW_HEAD	(0xF6u)
 #define PHA_HEAD	(0xF3u)
