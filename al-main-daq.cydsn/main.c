@@ -17,6 +17,7 @@
 #include "math.h"
 #include "errno.h"
 
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -300,7 +301,9 @@ uint32 curBaroTempCnt[NUM_BARO];
 uint32 curBaroPresCnt[NUM_BARO];
 uint32 baroReadReady = 0u;
 
-
+uint8 loopCount = 0;
+uint8 loopCountCheck = 0;
+#define SELECT_HIGH_LOOPS 64
 
 double BaroTempCalc ( double U, const BaroCoEff * bce )
 {
@@ -632,7 +635,7 @@ CY_ISR(ISRReadSPI)
 //	uint8 tempStatus = SPIM_BP_ReadStatus();
 	uint8 intState = CyEnterCriticalSection();
 
-	uint8 tempnDrdy = Pin_nDrdy_Read();
+	uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 	uint8 tempStatus = SPIM_BP_ReadStatus();
 	Control_Reg_LoadPulse_Write(0x01);
@@ -1233,18 +1236,33 @@ int main(void)
 			
 //		}
 //		CheckCmdDma(0);
+        
 		switch (readStatusBP)
 		{
 			case CHECKDATA:
+                
+            
 //				if(0u == (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
 //				{
-					Control_Reg_CD_Write(0x01u);
+				Control_Reg_CD_Write(0x01u);
+                
 //					lastDrdyCap = Timer_Drdy_ReadPeriod();
 //					Timer_Drdy_Start();
 					
 //				}
-                if(FALSE) //TODO New gltch filter test
+                uint8 highLoops; 
+                if (loopCount < loopCountCheck) // check overflow
+                {
+                    highLoops = (255 - loopCountCheck) + loopCount;
+                }
+                else
+                {
+                    highLoops = loopCount - loopCountCheck;
+                }
+                
+//                if(FALSE) //TODO New gltch filter test
 //				if (TRUE == timeoutDrdy)
+                if (SELECT_HIGH_LOOPS < highLoops) //timeout, no daata
 				{  
 //					if (iSPIDev >= (NUM_SPI_DEV - 1))
 //					{
@@ -1267,9 +1285,11 @@ int main(void)
 //					Timer_Drdy_Start();
 //					tempSpinTimer = 0;
 //					}
+                    loopCountCheck = loopCount;
 				}
-                else if(FALSE) //TODO New gltch filter test
+//                else if(FALSE) //TODO New gltch filter test
 //				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
+                else if (0u == Pin_nDrdy_Filter_Read()) 
 				{
 //					uint8 tempLastDrdyCap = lastDrdyCap;
 //					Timer_Drdy_SoftwareCapture();
@@ -1314,14 +1334,14 @@ int main(void)
 //						}
 //						tempSpinTimer = 0;
 					}
-					else //TODO New gltch filter test
-					{
+//					else //TODO New gltch filter test
+//					{
 //						buffUsbTxDebug[iBuffUsbTxDebug++] = '=';
 //						buffUsbTxDebug[iBuffUsbTxDebug++] = tempLastDrdyCap;
 //						buffUsbTxDebug[iBuffUsbTxDebug++] = '-';
 //						buffUsbTxDebug[iBuffUsbTxDebug++] = tempCounter;
 //						lastDrdyCap = tempLastDrdyCap;
-					}
+//					}
 				}
 				
 				break;
@@ -1514,8 +1534,9 @@ int main(void)
 						
 //						lastDrdyCap = Timer_Drdy_ReadPeriod();
 						
-						Timer_Drdy_Start();
+//						Timer_Drdy_Start();
 						readStatusBP = CHECKDATA;
+                        loopCountCheck = loopCount;
 					}
 //				}
 				break;
@@ -1633,6 +1654,7 @@ int main(void)
 //
 //			}
 //		}
+        loopCount++;
 	}
 }
 
