@@ -1261,7 +1261,7 @@ int main(void)
                 {
                     highLoops = loopCount - loopCountCheck;
                 }
-                
+                uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
 //                if(FALSE) //TODO New gltch filter test
 //				if (TRUE == timeoutDrdy)
                 if (SELECT_HIGH_LOOPS < highLoops) //timeout, no daata
@@ -1291,16 +1291,16 @@ int main(void)
 				}
 //                else if(FALSE) //TODO New gltch filter test
 //				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
-                else if (0u == Pin_nDrdy_Filter_Read()) 
+                else if (0u == tempnDrdy) 
 				{
 //					uint8 tempLastDrdyCap = lastDrdyCap;
 //					Timer_Drdy_SoftwareCapture();
 //					uint8 tempCounter = Timer_Drdy_ReadCounter();
 //					if (tempCounter > tempLastDrdyCap) tempCounter = 0;
 					//if ((0u == Pin_nDrdy_Read()) && (0u != (SPIM_BP_TX_STATUS_REG & SPIM_BP_STS_TX_FIFO_EMPTY)))
-                    if(FALSE) //TODO New gltch filter test
+//                    if(FALSE) //TODO New gltch filter test
 //					if ((tempLastDrdyCap - tempCounter) >= MIN_DRDY_CYCLES)
-					{
+//					{
 						SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 						Control_Reg_CD_Write(0x03u);
 						Control_Reg_LoadPulse_Write(0x01u);
@@ -1335,7 +1335,7 @@ int main(void)
 //							Timer_Drdy_Stop();
 //						}
 //						tempSpinTimer = 0;
-					}
+//					}
 //					else //TODO New gltch filter test
 //					{
 //						buffUsbTxDebug[iBuffUsbTxDebug++] = '=';
