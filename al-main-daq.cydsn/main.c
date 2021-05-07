@@ -643,7 +643,7 @@ CY_ISR(ISRReadSPI)
 //	uint8 tempStatus = SPIM_BP_ReadStatus();
 	uint8 intState = CyEnterCriticalSection();
 
-//	uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
+	uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 	uint8 tempStatus = SPIM_BP_ReadStatus();
 //	Control_Reg_LoadPulse_Write(0x01);
@@ -654,7 +654,7 @@ CY_ISR(ISRReadSPI)
 	{
 		buffSPIWrite[iSPIDev] = WRAPINC(tempBuffWrite, SPI_BUFFER_SIZE);
 		 //if ((0u == Pin_nDrdy_Read()) && (0u != (SPIM_BP_TX_STATUS_REG & SPIM_BP_STS_TX_FIFO_EMPTY)) && (buffSPIWrite[iSPIDev] != buffSPIRead[iSPIDev]))
-	    uint8 tempnDrdy = Pin_nDrdy_Filter_Read(); //placed here in hopes the glith filter can change to 1 at end of data
+//	    uint8 tempnDrdy = Pin_nDrdy_Filter_Read(); //placed here in hopes the glith filter can change to 1 at end of data
 		if ((0u != tempnDrdy) || ((WRAP3INC(buffSPIWrite[iSPIDev], SPI_BUFFER_SIZE)) == buffSPIRead[iSPIDev]))
 //		if ((buffSPIWrite[iSPIDev] == buffSPIRead[iSPIDev]))
 		{
