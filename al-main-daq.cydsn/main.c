@@ -64,7 +64,7 @@ typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. shou
 #define USBUART_BUFFER_SIZE	(64u)
 #define LINE_STR_LENGTH	(20u)
 
-#define NUM_SPI_DEV	(5u)
+#define NUM_SPI_DEV	(4u)
 uint8 iSPIDev = 0u;
 //uint8 frameSPIDev = 0u;
 #define POW_SEL		(0x01u)
@@ -79,6 +79,7 @@ const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
     Pin_Sel_Pwr_Write,
     Pin_Sel_PHA_Write,
     Pin_Sel_Ctr1_Write,
+    Pin_Sel_Tkr_Write,
     Pin_Sel_Ctr3_Write}; //function pointers to write to the pins for diffent select lines
 #define NULL_HEAD	(0xF9u)
 #define POW_HEAD	(0xF6u)
@@ -310,7 +311,7 @@ uint32 baroReadReady = 0u;
 
 uint8 loopCount = 0;
 uint8 loopCountCheck = 0;
-#define SELECT_HIGH_LOOPS 64
+#define SELECT_HIGH_LOOPS 250
 
 double BaroTempCalc ( double U, const BaroCoEff * bce )
 {
@@ -1089,6 +1090,7 @@ int main(void)
     Pin_Sel_Pwr_Write(0);
     Pin_Sel_PHA_Write(0);
     Pin_Sel_Ctr1_Write(0);
+    Pin_Sel_Tkr_Write(0);
     Pin_Sel_Ctr3_Write(0);
     
 		   /* Service USB CDC when device is configured. */
@@ -1530,7 +1532,7 @@ int main(void)
 			case EORFOUND:  
 //				Control_Reg_CD_Write(0u);
                 (*tabSPISel[iSPIDev])(0u);//select low to mke sure
-                continueRead = TRUE;
+//                continueRead = TRUE;
 //				if(0u != (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE ))
 //				{
 					Timer_SelLow_Stop();
