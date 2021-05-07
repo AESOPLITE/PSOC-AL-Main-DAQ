@@ -65,7 +65,8 @@ typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. shou
 #define USBUART_BUFFER_SIZE	(64u)
 #define LINE_STR_LENGTH	(20u)
 
-#define NUM_SPI_DEV	(5u)
+//#define NUM_SPI_DEV	(5u)
+#define NUM_SPI_DEV	(1u)
 uint8 iSPIDev = 0u;
 //uint8 frameSPIDev = 0u;
 #define POW_SEL		(0x01u)
@@ -77,11 +78,11 @@ uint8 iSPIDev = 0u;
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, CTR1_SEL, 0, CTR3_SEL};
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, 0, 0, 0}; //DEBUG
 const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
-    Pin_Sel_Pwr_Write,
-    Pin_Sel_PHA_Write,
-    Pin_Sel_Ctr1_Write,
-    Pin_Sel_Tkr_Write,
-    Pin_Sel_Ctr3_Write}; //function pointers to write to the pins for diffent select lines
+    Pin_Sel_Pwr_Write}; //debug
+//    Pin_Sel_PHA_Write,
+//    Pin_Sel_Ctr1_Write,
+//    Pin_Sel_Tkr_Write,
+//    Pin_Sel_Ctr3_Write}; //function pointers to write to the pins for diffent select lines
 #define NULL_HEAD	(0xF9u)
 #define POW_HEAD	(0xF6u)
 #define PHA_HEAD	(0xF3u)
@@ -91,7 +92,7 @@ const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
 #define EOR_HEAD	(0xFFu)
 #define DUMP_HEAD	(0xF5u)
 #define ENDDUMP_HEAD	(0xF7u)
-const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD, PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
+const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD}; //debug, PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
 const uint8 frame00FF[2] = {0x00u, 0xFFu};
 uint8 buffSPI[NUM_SPI_DEV][SPI_BUFFER_SIZE];
 SPIBufferIndex buffSPIRead[NUM_SPI_DEV];
