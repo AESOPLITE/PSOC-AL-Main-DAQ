@@ -50,7 +50,8 @@
 /* Project Defines */
 #define FALSE  0
 #define TRUE   1
-#define SPI_BUFFER_SIZE  (512u)
+//#define SPI_BUFFER_SIZE  (512u)
+#define SPI_BUFFER_SIZE  (1024u)
 #define EV_BUFFER_SIZE  (512u)
 typedef uint16 SPIBufferIndex; //type of variable indexing the SPI buffer. should be uint8 or uint16 based on size
 typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. should be uint16
