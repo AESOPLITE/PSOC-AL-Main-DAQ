@@ -73,8 +73,13 @@ uint8 iSPIDev = 0u;
 #define TKR_SEL		(0x0Bu)
 #define CTR3_SEL	(0x0Cu)
 //const uint8 tabSPISel[NUM_SPI_DEV] = {POW_SEL, PHA_SEL, CTR1_SEL, TKR_SEL, CTR3_SEL};
-const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, CTR1_SEL, 0, CTR3_SEL};
+//const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, CTR1_SEL, 0, CTR3_SEL};
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, 0, 0, 0}; //DEBUG
+const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
+    Pin_Sel_Pwr_Write,
+    Pin_Sel_PHA_Write,
+    Pin_Sel_Ctr1_Write,
+    Pin_Sel_Ctr3_Write}; //function pointers to write to the pins for diffent select lines
 #define NULL_HEAD	(0xF9u)
 #define POW_HEAD	(0xF6u)
 #define PHA_HEAD	(0xF3u)
@@ -640,7 +645,8 @@ CY_ISR(ISRReadSPI)
 	uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 	uint8 tempStatus = SPIM_BP_ReadStatus();
-	Control_Reg_LoadPulse_Write(0x01);
+//	Control_Reg_LoadPulse_Write(0x01);
+    (*tabSPISel[iSPIDev])(0u);//select low for a peeriod of time
     Timer_SelLow_Start();
     continueRead = TRUE;
 	if (tempBuffWrite != buffSPICurHead[iSPIDev]) //Check if buffer is full
@@ -689,19 +695,22 @@ CY_ISR(ISRWriteSPI)
 //	{
 //		SPIM_BP_WriteTxData(FILLBYTE);
 //	}
+    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
     if(continueRead)
     {
+        Control_Reg_LoadPulse_Write(0x01);
         SPIM_BP_WriteTxData(FILLBYTE);
-        Control_Reg_CD_Write(0x02u);
+//        Control_Reg_CD_Write(0x02u);
+
     }
-    else
-    {
-        Control_Reg_CD_Write(0x00u);
-    }
-	if(0u != (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE ))
-	{
-		Timer_SelLow_Stop();
-	}
+//    else
+//    {
+//        Control_Reg_CD_Write(0x00u);
+//    }
+//	if(0u != (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE ))
+//	{
+    Timer_SelLow_Stop();
+//	}
     CyExitCriticalSection(intState);
 }
 CY_ISR(ISRReadEv)
@@ -1077,6 +1086,11 @@ int main(void)
     Pin_Sel_HV1_Write(0);
     Pin_Sel_HV2_Write(0);
    
+    Pin_Sel_Pwr_Write(0);
+    Pin_Sel_PHA_Write(0);
+    Pin_Sel_Ctr1_Write(0);
+    Pin_Sel_Ctr3_Write(0);
+    
 		   /* Service USB CDC when device is configured. */
 //	if ((0u != USBUART_CD_GetConfiguration()) && (iBuffUsbTx > 0))
 //	{
@@ -1089,10 +1103,10 @@ int main(void)
 //	}
 //	lastDrdyCap = Timer_Drdy_ReadPeriod();
 	
-	Control_Reg_R_Write(0x00u);
+//	Control_Reg_R_Write(0x00u);
 
-	Control_Reg_SS_Write(tabSPISel[0u]);
-	Control_Reg_CD_Write(1u);
+//	Control_Reg_SS_Write(tabSPISel[0u]);
+//	Control_Reg_CD_Write(1u);
 	
 	
 	
@@ -1260,13 +1274,15 @@ int main(void)
             
 //				if(0u == (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
 //				{
-				Control_Reg_CD_Write(0x01u);
+//				Control_Reg_CD_Write(0x01u);
+                
                 
 //					lastDrdyCap = Timer_Drdy_ReadPeriod();
 //					Timer_Drdy_Start();
 					
 //				}
-                uint8 highLoops; 
+                (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+                uint8 highLoops;
                 if (loopCount < loopCountCheck) // check overflow
                 {
                     highLoops = (255 - loopCountCheck) + loopCount;
@@ -1291,9 +1307,11 @@ int main(void)
 //					if (0x0FFFu == ++tempSpinTimer)
 //					{
 //					Control_Reg_CD_Write(0u);
+                    (*tabSPISel[iSPIDev])(0u);//select low before switching
 					iSPIDev = WRAPINC(iSPIDev, NUM_SPI_DEV);
-					Control_Reg_SS_Write(tabSPISel[iSPIDev]);
-					Control_Reg_CD_Write(1u);
+                    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+//					Control_Reg_SS_Write(tabSPISel[iSPIDev]);
+//					Control_Reg_CD_Write(1u);
 					
 //					timeoutDrdy = FALSE;
 //					lastDrdyCap = Timer_Drdy_ReadPeriod();
@@ -1316,7 +1334,7 @@ int main(void)
 //					if ((tempLastDrdyCap - tempCounter) >= MIN_DRDY_CYCLES)
 //					{
 						SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
-						Control_Reg_CD_Write(0x03u);
+//						Control_Reg_CD_Write(0x03u);
 						Control_Reg_LoadPulse_Write(0x01u);
 						buffSPICurHead[iSPIDev] = buffSPIWrite[iSPIDev];
 						buffSPIWrite[iSPIDev] = WRAP3INC(tempBuffWrite, SPI_BUFFER_SIZE);
@@ -1339,7 +1357,7 @@ int main(void)
 						
 	  
 						
-						//continueRead = TRUE;
+						continueRead = TRUE; 
 						readStatusBP = READOUTDATA;
 //						timeoutDrdy = FALSE;
 //						lastDrdyCap = Timer_Drdy_ReadPeriod();
@@ -1381,7 +1399,8 @@ int main(void)
 //						}
 //					}
 //				}
-				if (0u == (0x03u & Control_Reg_CD_Read()))
+//				if (0u == (0x03u & Control_Reg_CD_Read()))
+                if((FALSE == continueRead) && (0u == (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE )))
 				{
 //                    Control_Reg_CD_Write(0u);
 					if (buffSPICurHead[iSPIDev] == buffSPIWrite[iSPIDev]) //TODO this should't be true due to ISR
@@ -1490,6 +1509,7 @@ int main(void)
 					}
 					 
 				}
+                //TODO timeout
 //				else 
 //				{
 //					if (0u != (SPIM_BP_STS_SPI_IDLE | SPIM_BP_TX_STATUS_REG))
@@ -1508,7 +1528,9 @@ int main(void)
 				
 			case EORERROR:
 			case EORFOUND:  
-				Control_Reg_CD_Write(0u);
+//				Control_Reg_CD_Write(0u);
+                (*tabSPISel[iSPIDev])(0u);//select low to mke sure
+                continueRead = TRUE;
 //				if(0u != (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE ))
 //				{
 					Timer_SelLow_Stop();
@@ -1545,9 +1567,9 @@ int main(void)
 //							buffSPIRead[iSPIDev] = tempBuffWrite;
 //						}
 						iSPIDev = WRAPINC(iSPIDev, NUM_SPI_DEV);
-						Control_Reg_SS_Write(tabSPISel[iSPIDev]);
-						Control_Reg_CD_Write(1u);
-						
+//						Control_Reg_SS_Write(tabSPISel[iSPIDev]);
+//						Control_Reg_CD_Write(1u);
+						(*tabSPISel[iSPIDev])(1u);//select high to check the selected board
 //						lastDrdyCap = Timer_Drdy_ReadPeriod();
 						
 //						Timer_Drdy_Start();
