@@ -697,11 +697,12 @@ CY_ISR(ISRWriteSPI)
 //	{
 //		SPIM_BP_WriteTxData(FILLBYTE);
 //	}
-    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+//    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
     if(continueRead)
     {
         Control_Reg_LoadPulse_Write(0x01);
         SPIM_BP_WriteTxData(FILLBYTE);
+        (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
 //        Control_Reg_CD_Write(0x02u);
 
     }
