@@ -1278,6 +1278,7 @@ int main(void)
         
 		switch (readStatusBP)
 		{
+            uint8 tempnDrdy;
 			case CHECKDATA:
                 
             
@@ -1290,7 +1291,8 @@ int main(void)
 //					Timer_Drdy_Start();
 					
 //				}
-                (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+//                (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+                tempnDrdy = Pin_nDrdy_Filter_Read();
                 uint8 highLoops;
                 if (loopCount < loopCountCheck) // check overflow
                 {
@@ -1300,10 +1302,12 @@ int main(void)
                 {
                     highLoops = loopCount - loopCountCheck;
                 }
-                uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
+//                uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
 //                if(FALSE) //TODO New gltch filter test
 //				if (TRUE == timeoutDrdy)
-                if (SELECT_HIGH_LOOPS < highLoops) //timeout, no daata
+                
+                
+                if (SELECT_HIGH_LOOPS < highLoops) //timeout, no data
 				{  
 //					if (iSPIDev >= (NUM_SPI_DEV - 1))
 //					{
@@ -1318,7 +1322,8 @@ int main(void)
 //					Control_Reg_CD_Write(0u);
                     (*tabSPISel[iSPIDev])(0u);//select low before switching
 					iSPIDev = WRAPINC(iSPIDev, NUM_SPI_DEV);
-                    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+                    (*tabSPISel[iSPIDev])(0u);//select low before and wait for high
+//                    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
 //					Control_Reg_SS_Write(tabSPISel[iSPIDev]);
 //					Control_Reg_CD_Write(1u);
 					
@@ -1330,6 +1335,11 @@ int main(void)
 //					}
                     loopCountCheck = loopCount;
 				}
+                else if ((SELECT_HIGH_LOOPS / 4) < highLoops) //timeout, no data
+                {
+                    (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+                    
+                }
 //                else if(FALSE) //TODO New gltch filter test
 //				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
                 else if (0u == tempnDrdy) 
