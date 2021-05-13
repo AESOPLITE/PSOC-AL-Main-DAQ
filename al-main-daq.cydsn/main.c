@@ -65,6 +65,8 @@ typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. shou
 #define USBUART_BUFFER_SIZE	(64u)
 #define LINE_STR_LENGTH	(20u)
 
+//#define SELLOW_PERIOD	(16u)
+
 //#define NUM_SPI_DEV	(5u)
 #define NUM_SPI_DEV	(1u)
 uint8 iSPIDev = 0u;
