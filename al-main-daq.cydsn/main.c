@@ -1338,64 +1338,64 @@ int main(void)
                 else if ((SELECT_HIGH_LOOPS / 4) < highLoops) //timeout, no data
                 {
                     (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
-                    
+                    if (0u == tempnDrdy) 
+    				{
+    //					uint8 tempLastDrdyCap = lastDrdyCap;
+    //					Timer_Drdy_SoftwareCapture();
+    //					uint8 tempCounter = Timer_Drdy_ReadCounter();
+    //					if (tempCounter > tempLastDrdyCap) tempCounter = 0;
+    					//if ((0u == Pin_nDrdy_Read()) && (0u != (SPIM_BP_TX_STATUS_REG & SPIM_BP_STS_TX_FIFO_EMPTY)))
+    //                    if(FALSE) //TODO New gltch filter test
+    //					if ((tempLastDrdyCap - tempCounter) >= MIN_DRDY_CYCLES)
+    //					{
+    						SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
+    //						Control_Reg_CD_Write(0x03u);
+    						Control_Reg_LoadPulse_Write(0x01u);
+    						buffSPICurHead[iSPIDev] = buffSPIWrite[iSPIDev];
+    						buffSPIWrite[iSPIDev] = WRAP3INC(tempBuffWrite, SPI_BUFFER_SIZE);
+    						if (0u != (SPIM_BP_STS_TX_FIFO_EMPTY | SPIM_BP_TX_STATUS_REG))
+    						{
+    							SPIM_BP_WriteTxData(FILLBYTE);
+    						}
+    						
+    						buffSPI[iSPIDev][tempBuffWrite] = tabSPIHead[iSPIDev];
+    						tempBuffWrite=WRAPINC(tempBuffWrite, SPI_BUFFER_SIZE);
+    						if((SPI_BUFFER_SIZE - 1) == tempBuffWrite) //check for 2 byte wrap
+    						{
+    							buffSPI[iSPIDev][(SPI_BUFFER_SIZE - 1)] = frame00FF[0];
+    							buffSPI[iSPIDev][0] = frame00FF[1];
+    						}
+    						else
+    						{
+    							memcpy(&(buffSPI[iSPIDev][tempBuffWrite]), frame00FF, 2);
+    						}
+    						
+    	  
+    						
+    						continueRead = TRUE; 
+    						readStatusBP = READOUTDATA;
+    //						timeoutDrdy = FALSE;
+    //						lastDrdyCap = Timer_Drdy_ReadPeriod();
+    						
+    //						if(0u != (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
+    //						{   
+    //							Timer_Drdy_Stop();
+    //						}
+    //						tempSpinTimer = 0;
+    //					}
+    //					else //TODO New gltch filter test
+    //					{
+    //						buffUsbTxDebug[iBuffUsbTxDebug++] = '=';
+    //						buffUsbTxDebug[iBuffUsbTxDebug++] = tempLastDrdyCap;
+    //						buffUsbTxDebug[iBuffUsbTxDebug++] = '-';
+    //						buffUsbTxDebug[iBuffUsbTxDebug++] = tempCounter;
+    //						lastDrdyCap = tempLastDrdyCap;
+    //					}
+				    }
                 }
 //                else if(FALSE) //TODO New gltch filter test
 //				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
-                else if (0u == tempnDrdy) 
-				{
-//					uint8 tempLastDrdyCap = lastDrdyCap;
-//					Timer_Drdy_SoftwareCapture();
-//					uint8 tempCounter = Timer_Drdy_ReadCounter();
-//					if (tempCounter > tempLastDrdyCap) tempCounter = 0;
-					//if ((0u == Pin_nDrdy_Read()) && (0u != (SPIM_BP_TX_STATUS_REG & SPIM_BP_STS_TX_FIFO_EMPTY)))
-//                    if(FALSE) //TODO New gltch filter test
-//					if ((tempLastDrdyCap - tempCounter) >= MIN_DRDY_CYCLES)
-//					{
-						SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
-//						Control_Reg_CD_Write(0x03u);
-						Control_Reg_LoadPulse_Write(0x01u);
-						buffSPICurHead[iSPIDev] = buffSPIWrite[iSPIDev];
-						buffSPIWrite[iSPIDev] = WRAP3INC(tempBuffWrite, SPI_BUFFER_SIZE);
-						if (0u != (SPIM_BP_STS_TX_FIFO_EMPTY | SPIM_BP_TX_STATUS_REG))
-						{
-							SPIM_BP_WriteTxData(FILLBYTE);
-						}
-						
-						buffSPI[iSPIDev][tempBuffWrite] = tabSPIHead[iSPIDev];
-						tempBuffWrite=WRAPINC(tempBuffWrite, SPI_BUFFER_SIZE);
-						if((SPI_BUFFER_SIZE - 1) == tempBuffWrite) //check for 2 byte wrap
-						{
-							buffSPI[iSPIDev][(SPI_BUFFER_SIZE - 1)] = frame00FF[0];
-							buffSPI[iSPIDev][0] = frame00FF[1];
-						}
-						else
-						{
-							memcpy(&(buffSPI[iSPIDev][tempBuffWrite]), frame00FF, 2);
-						}
-						
-	  
-						
-						continueRead = TRUE; 
-						readStatusBP = READOUTDATA;
-//						timeoutDrdy = FALSE;
-//						lastDrdyCap = Timer_Drdy_ReadPeriod();
-						
-//						if(0u != (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
-//						{   
-//							Timer_Drdy_Stop();
-//						}
-//						tempSpinTimer = 0;
-//					}
-//					else //TODO New gltch filter test
-//					{
-//						buffUsbTxDebug[iBuffUsbTxDebug++] = '=';
-//						buffUsbTxDebug[iBuffUsbTxDebug++] = tempLastDrdyCap;
-//						buffUsbTxDebug[iBuffUsbTxDebug++] = '-';
-//						buffUsbTxDebug[iBuffUsbTxDebug++] = tempCounter;
-//						lastDrdyCap = tempLastDrdyCap;
-//					}
-				}
+                
 				
 				break;
 				
@@ -1589,6 +1589,7 @@ int main(void)
 //						Control_Reg_SS_Write(tabSPISel[iSPIDev]);
 //						Control_Reg_CD_Write(1u);
 						(*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+						(*tabSPISel[iSPIDev])(0u);//select low and wait
 //						lastDrdyCap = Timer_Drdy_ReadPeriod();
 						
 //						Timer_Drdy_Start();
