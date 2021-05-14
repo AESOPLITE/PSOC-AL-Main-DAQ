@@ -71,11 +71,11 @@ typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. shou
 #define NUM_SPI_DEV	(5u)
 uint8 iSPIDev = 0u;
 //uint8 frameSPIDev = 0u;
-#define POW_SEL		(0x01u)
-#define PHA_SEL		(0x02u)
-#define CTR1_SEL	(0x03u)
-#define TKR_SEL		(0x0Bu)
-#define CTR3_SEL	(0x0Cu)
+//#define POW_SEL		(0x01u)
+//#define PHA_SEL		(0x02u)
+//#define CTR1_SEL	(0x03u)
+//#define TKR_SEL		(0x0Bu)
+//#define CTR3_SEL	(0x0Cu)
 //const uint8 tabSPISel[NUM_SPI_DEV] = {POW_SEL, PHA_SEL, CTR1_SEL, TKR_SEL, CTR3_SEL};
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, CTR1_SEL, 0, CTR3_SEL};
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, 0, 0, 0}; //DEBUG
@@ -652,7 +652,7 @@ CY_ISR(ISRReadSPI)
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 	uint8 tempStatus = SPIM_BP_ReadStatus();
 //	Control_Reg_LoadPulse_Write(0x01);
-    (*tabSPISel[iSPIDev])(0u);//select low for a peeriod of time
+    (*tabSPISel[iSPIDev])(0u);//select low for a period of time
     Timer_SelLow_Start();
     continueRead = TRUE;
 	if (tempBuffWrite != buffSPICurHead[iSPIDev]) //Check if buffer is full
@@ -1090,6 +1090,8 @@ int main(void)
 	UART_LR_Cmd_1_Start();
 	UART_LR_Cmd_2_Start();
 	UART_LR_Data_Start();
+	Timer_SelLow_Stop();
+    
     
     Pin_Sel_HV1_Write(0);
     Pin_Sel_HV2_Write(0);
@@ -1281,7 +1283,8 @@ int main(void)
             uint8 tempnDrdy;
 			case CHECKDATA:
                 
-            
+				Timer_SelLow_Stop();
+                
 //				if(0u == (Timer_Drdy_ReadControlRegister() & Timer_Drdy_CTRL_ENABLE ))
 //				{
 //				Control_Reg_CD_Write(0x01u);
@@ -1335,7 +1338,7 @@ int main(void)
 //					}
                     loopCountCheck = loopCount;
 				}
-                else if ((SELECT_HIGH_LOOPS / 4) < highLoops) //timeout, no data
+                else if ((SELECT_HIGH_LOOPS / 4) < highLoops) //time to sel high 
                 {
                     (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
                     if (0u == tempnDrdy) 
@@ -1393,6 +1396,11 @@ int main(void)
     //					}
 				    }
                 }
+                else
+                {
+                    (*tabSPISel[iSPIDev])(0u);//select low, wait for high
+    				continueRead = FALSE; 
+                }
 //                else if(FALSE) //TODO New gltch filter test
 //				else if ((0u == Pin_nDrdy_Read()) )//&& (0u == (Timer_Drdy_ReadStatusRegister() & Timer_Drdy_STATUS_FIFONEMP)))
                 
@@ -1419,7 +1427,8 @@ int main(void)
 //					}
 //				}
 //				if (0u == (0x03u & Control_Reg_CD_Read()))
-                if((FALSE == continueRead) && (0u == (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE )))
+//                if((FALSE == continueRead) && (0u == (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE )))
+                if((FALSE == continueRead) && (0u == (Timer_SelLow_CONTROL & Timer_SelLow_CTRL_ENABLE )))
 				{
 //                    Control_Reg_CD_Write(0u);
 					if (buffSPICurHead[iSPIDev] == buffSPIWrite[iSPIDev]) //TODO this should't be true due to ISR
@@ -1548,7 +1557,9 @@ int main(void)
 			case EORERROR:
 			case EORFOUND:  
 //				Control_Reg_CD_Write(0u);
-                (*tabSPISel[iSPIDev])(0u);//select low to mke sure
+                (*tabSPISel[iSPIDev])(0u);//select low to make sure
+    			continueRead = FALSE; 
+                
 //                continueRead = TRUE;
 //				if(0u != (Timer_SelLow_ReadControlRegister() & Timer_SelLow_CTRL_ENABLE ))
 //				{
@@ -1588,7 +1599,7 @@ int main(void)
 						iSPIDev = WRAPINC(iSPIDev, NUM_SPI_DEV);
 //						Control_Reg_SS_Write(tabSPISel[iSPIDev]);
 //						Control_Reg_CD_Write(1u);
-						(*tabSPISel[iSPIDev])(1u);//select high to check the selected board
+//						(*tabSPISel[iSPIDev])(1u);//select high to check the selected board
 						(*tabSPISel[iSPIDev])(0u);//select low and wait
 //						lastDrdyCap = Timer_Drdy_ReadPeriod();
 						
