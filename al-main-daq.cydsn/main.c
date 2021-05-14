@@ -1114,7 +1114,7 @@ int main(void)
 //	}
 //	lastDrdyCap = Timer_Drdy_ReadPeriod();
 	
-//	Control_Reg_R_Write(0x00u);
+	Control_Reg_R_Write(0x00u);
 
 //	Control_Reg_SS_Write(tabSPISel[0u]);
 //	Control_Reg_CD_Write(1u);
