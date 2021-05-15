@@ -3854,7 +3854,7 @@
     </Group>
     <Group key="3016af24-466f-42aa-8406-f537590e52f6">
       <Group key="0">
-        <Data key="Port Format" value="4,1" />
+        <Data key="Port Format" value="5,3" />
       </Group>
     </Group>
     <Group key="09365b50-5881-4294-bfb1-eb2228e50453">
@@ -3974,7 +3974,7 @@
     </Group>
     <Group key="def50a59-51c4-4c1c-aae6-55544c94c918">
       <Group key="0">
-        <Data key="Port Format" value="1,2" />
+        <Data key="Port Format" value="4,1" />
       </Group>
     </Group>
     <Group key="e8fe5474-ce4a-40e0-8061-f2927eaff513">
@@ -4023,6 +4023,7 @@
       </Group>
     </Group>
     <Group key="UnAssigned Pins" />
+    <Group key="Unlocked Pins" />
   </Group>
   <Group key="PlaceDir">
     <Data key="count" value="0" />
