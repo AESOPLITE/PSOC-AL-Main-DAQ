@@ -650,7 +650,8 @@ CY_ISR(ISRReadSPI)
 
 	uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
-	uint8 tempStatus = SPIM_BP_ReadStatus();
+//	uint8 tempStatus = SPIM_BP_ReadStatus();
+	uint8 tempStatus = SPIM_BP_ReadTxStatus();
 //	Control_Reg_LoadPulse_Write(0x01);
     (*tabSPISel[iSPIDev])(0u);//select low for a period of time
     Timer_SelLow_Start();
