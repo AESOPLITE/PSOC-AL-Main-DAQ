@@ -94,7 +94,7 @@ const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
 #define EOR_HEAD	(0xFFu)
 #define DUMP_HEAD	(0xF5u)
 #define ENDDUMP_HEAD	(0xF7u)
-const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD}; //debug, PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
+const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD, PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
 const uint8 frame00FF[2] = {0x00u, 0xFFu};
 uint8 buffSPI[NUM_SPI_DEV][SPI_BUFFER_SIZE];
 SPIBufferIndex buffSPIRead[NUM_SPI_DEV];
