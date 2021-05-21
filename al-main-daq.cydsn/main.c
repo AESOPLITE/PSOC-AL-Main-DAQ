@@ -678,6 +678,7 @@ CY_ISR(ISRReadSPI)
 //			}
 //		}
 //		tempStatus = SPIM_BP_ReadStatus();
+		tempStatus = SPIM_BP_ReadRxStatus(); //need to check RxStatus before ReadRxData()
 		if (0u != (SPIM_BP_STS_RX_FIFO_NOT_EMPTY & tempStatus))
 		{
 			buffSPI[iSPIDev][tempBuffWrite] = SPIM_BP_ReadRxData();
