@@ -1151,7 +1151,8 @@ int main(void)
 //	SendInitCmds();
 	isr_B_StartEx(ISRBaroCap);
     
-    
+    CyDelay(7000); //7 sec delay for boards to init TODO Debug
+
 	for(;;)
 	{
 		
