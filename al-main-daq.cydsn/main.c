@@ -648,7 +648,7 @@ CY_ISR(ISRReadSPI)
 //	uint8 tempStatus = SPIM_BP_ReadStatus();
 	uint8 intState = CyEnterCriticalSection();
 
-	uint8 tempnDrdy = Pin_nDrdy_Filter_Read();
+	uint8 tempnDrdy = Pin_nDrdy_Filter_ReadDataReg();
 	SPIBufferIndex tempBuffWrite = buffSPIWrite[iSPIDev];
 //	uint8 tempStatus = SPIM_BP_ReadStatus();
 	uint8 tempStatus = SPIM_BP_ReadTxStatus();
@@ -1298,7 +1298,7 @@ int main(void)
 					
 //				}
 //                (*tabSPISel[iSPIDev])(1u);//select high to check the selected board
-                tempnDrdy = Pin_nDrdy_Filter_Read();
+                tempnDrdy = Pin_nDrdy_Filter_ReadDataReg();
                 uint8 highLoops;
                 if (loopCount < loopCountCheck) // check overflow
                 {
