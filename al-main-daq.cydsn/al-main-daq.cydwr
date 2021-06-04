@@ -623,6 +623,7 @@
       <Data key="ee6f49e1-34d8-459a-a3a1-25cbf7d9ef9c" value="Clock_4" />
     </Group>
     <Group key="Pin">
+      <Data key="2c72376a-bb99-489f-a46e-22f0ee5a8d29" value="Pin_RTC_Out" />
       <Data key="4a0f8fc2-6e89-4289-b2ac-88770fb70364" value="Pin_Mclk_En" />
       <Data key="5a2b6655-5bda-464c-8ea1-d5a4309f61b9" value="Pin_BaroPres2" />
       <Data key="5f10239b-8266-4169-99b6-6c84f9333c15" value="Rx_3" />
@@ -664,10 +665,11 @@
       <Data key="c403c62c-0004-482d-bc7c-f5da331abfe3" value="Pin_3" />
       <Data key="cfafc1df-7418-4851-bf12-cac5cbeb0cdf" value="Pin_HRTx" />
       <Data key="d40b9a74-26b2-4480-a28b-c5e271509d66" value="Rx_3" />
-      <Data key="d797dd80-aa8b-498d-98ce-4dd23d11eb91" value="Pin_Test_CE1" />
+      <Data key="d797dd80-aa8b-498d-98ce-4dd23d11eb91" value="Pin_CE1" />
       <Data key="dae1eddf-36d4-44d3-9fce-59841a97eeb7" value="Pin_HRTx2temp_1" />
       <Data key="de3c9de2-1e7e-4fc2-8250-645f7cec1e74" value="Pin_HRTx2" />
       <Data key="def50a59-51c4-4c1c-aae6-55544c94c918" value="Pin_nDrdy_Filter" />
+      <Data key="e7defa3d-53ea-4747-92e9-d9612036f389" value="Pin_LED2" />
       <Data key="e8fe5474-ce4a-40e0-8061-f2927eaff513" value="Pin_LEDedge2" />
       <Data key="e851a3b9-efb8-48be-bbb8-b303b216c393" value="Pin_Cmd" />
       <Data key="ea141804-bddc-4746-9672-667e792af68a" value="Pin_Sel_Ctr1" />
@@ -3763,6 +3765,11 @@
     </Group>
   </Group>
   <Group key="Pin2">
+    <Group key="2c72376a-bb99-489f-a46e-22f0ee5a8d29">
+      <Group key="0">
+        <Data key="Port Format" value="1,5" />
+      </Group>
+    </Group>
     <Group key="4a0f8fc2-6e89-4289-b2ac-88770fb70364">
       <Group key="0">
         <Data key="Port Format" value="0,0" />
@@ -3855,7 +3862,7 @@
     </Group>
     <Group key="3016af24-466f-42aa-8406-f537590e52f6">
       <Group key="0">
-        <Data key="Port Format" value="5,3" />
+        <Data key="Port Format" value="4,1" />
       </Group>
     </Group>
     <Group key="09365b50-5881-4294-bfb1-eb2228e50453">
@@ -3979,6 +3986,11 @@
       </Group>
     </Group>
     <Group key="def50a59-51c4-4c1c-aae6-55544c94c918">
+      <Group key="0">
+        <Data key="Port Format" value="3,2" />
+      </Group>
+    </Group>
+    <Group key="e7defa3d-53ea-4747-92e9-d9612036f389">
       <Group key="0">
         <Data key="Port Format" value="4,1" />
       </Group>
