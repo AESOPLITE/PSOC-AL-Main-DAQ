@@ -260,7 +260,7 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 	{TESTTHRESHOLD, 0x22},  //DAC Byte    
     {0x36, 0x22},  //Header for Trigger Mask Set
 	{0x01, 0x21},  //Mask 1 
-	{0x0E, 0x22},  //Trigger Mask 0D T3
+	{0x06, 0x22},  //Trigger Mask 0D T3
     {0x39, 0x22},  //Header for Trigger Prescale Set
     {0x02, 0x21},  //PMT
 	{0x04, 0x22},  //Prescale by 4 
