@@ -196,7 +196,7 @@ volatile uint8 continueRead = FALSE;
 //Coinc	FDB	$F838  ;T1 T2 T3 Coincidence
 //	FDB	$0AB7  ;10sec counter R/O
 //	FDB	$0AB6  ;10sec Power R/O
-#define TESTTHRESHOLD 0x05 //Just for intializing DAC thresholds, starting with 0x14
+#define TESTTHRESHOLD 0x03 //Just for intializing DAC thresholds, starting with 0x14
 
 //AESOPLite Initialization Commands
 #define NUMBER_INIT_CMDS	(32 + 39)
