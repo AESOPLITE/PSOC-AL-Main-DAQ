@@ -197,7 +197,7 @@ volatile uint8 continueRead = FALSE;
 //	FDB	$0AB7  ;10sec counter R/O
 //	FDB	$0AB6  ;10sec Power R/O
 #define TESTTHRESHOLD 0x03 //Just for intializing T3 G DAC thresholds
-#define TESTTHRESHOLDT1 0x02 //Just for intializing T1 DAC thresholds
+#define TESTTHRESHOLDT1 0x01 //Just for intializing T1 DAC thresholds
 #define TESTTHRESHOLDT4 0x03 //Just for intializing T4 DAC threshold
 
 //AESOPLite Initialization Commands
