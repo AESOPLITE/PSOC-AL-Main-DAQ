@@ -196,7 +196,7 @@ volatile uint8 continueRead = FALSE;
 //Coinc	FDB	$F838  ;T1 T2 T3 Coincidence
 //	FDB	$0AB7  ;10sec counter R/O
 //	FDB	$0AB6  ;10sec Power R/O
-#define TESTTHRESHOLD 0x07 //Just for intializing DAC thresholds, starting with 0x14
+#define TESTTHRESHOLD 0x05 //Just for intializing DAC thresholds, starting with 0x14
 
 //AESOPLite Initialization Commands
 #define NUMBER_INIT_CMDS	(32 + 39)
@@ -260,15 +260,15 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 	{TESTTHRESHOLD, 0x22},  //DAC Byte    
     {0x36, 0x22},  //Header for Trigger Mask Set
 	{0x01, 0x21},  //Mask 1 
-	{0x06, 0x22},  //Trigger Mask 0D T3
+	{0x06, 0x22},  //Trigger Mask 06 T1 T4
     {0x39, 0x22},  //Header for Trigger Prescale Set
     {0x02, 0x21},  //PMT
 	{0x04, 0x22},  //Prescale by 4 
     {0x3A, 0x21},  //Header for Trigger Window Set
     {0x18, 0x21},  //Trigger Window Data
     {0x36, 0x22},  //Header for Trigger Mask Set
-    {0x00, 0x21},  //Mask 2 
-	{0x00, 0x22},  //Trigger Mask 00 none
+    {0x02, 0x21},  //Mask 2 
+	{0x00, 0x22},  //Trigger Mask 00 all
     {0x30, 0x21},  //Header for Output Mode Set
 	{0x00, 0x21},  //0 SPI output 
     {0x3B, 0x21},  //Header Trigger Enable Set
