@@ -1,11 +1,16 @@
 /* ========================================
  *
- * Copyright YOUR COMPANY, THE YEAR
+ * Brian Lucas
+ * Copyright Bartol Research Institute, 2020
  * All Rights Reserved
  * UNPUBLISHED, LICENSED SOFTWARE.
  *
  * CONFIDENTIAL AND PROPRIETARY INFORMATION
- * WHICH IS THE PROPERTY OF your company.
+ * WHICH IS THE PROPERTY OF Bartol Research Institute.
+ *
+ *
+ * Firmware for the Main PSOC on the AESOPLite DAQ board
+ * V0-0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
  *
  * ========================================
 */
@@ -17,7 +22,8 @@
 #include "math.h"
 #include "errno.h"
 
-
+#define MAJOR_VERSION 0 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
+#define MINOR_VERSION 0 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
