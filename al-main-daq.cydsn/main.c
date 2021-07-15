@@ -11,6 +11,7 @@
  *
  * Firmware for the Main PSOC on the AESOPLite DAQ board
  * V0-0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
+ * V1-0 Changes to Select lines for new 2021 backplane
  *
  * ========================================
 */
@@ -22,7 +23,7 @@
 #include "math.h"
 #include "errno.h"
 
-#define MAJOR_VERSION 0 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
+#define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
 #define MINOR_VERSION 0 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -74,7 +75,7 @@ typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. shou
 //#define SELLOW_PERIOD	(16u)
 
 //#define NUM_SPI_DEV	(5u)
-#define NUM_SPI_DEV	(5u)
+#define NUM_SPI_DEV	(1u)
 uint8 iSPIDev = 0u;
 //uint8 frameSPIDev = 0u;
 //#define POW_SEL		(0x01u)
@@ -86,11 +87,7 @@ uint8 iSPIDev = 0u;
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, CTR1_SEL, 0, CTR3_SEL};
 //const uint8 tabSPISel[NUM_SPI_DEV] = {0, 0, 0, 0, 0}; //DEBUG
 const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
-    Pin_Sel_Pwr_Write, //debug
-    Pin_Sel_PHA_Write,
-    Pin_Sel_Ctr1_Write,
-    Pin_Sel_Tkr_Write,
-    Pin_Sel_Ctr3_Write}; //function pointers to write to the pins for diffent select lines
+    Pin_Sel2_Pwr_Write}; //function pointers to write to the pins for diffent select lines
 #define NULL_HEAD	(0xF9u)
 #define POW_HEAD	(0xF6u)
 #define PHA_HEAD	(0xF3u)
@@ -1103,15 +1100,15 @@ int main(void)
 	UART_LR_Data_Start();
 	Timer_SelLow_Stop();
     
-    
-    Pin_Sel_HV1_Write(0);
-    Pin_Sel_HV2_Write(0);
+    Pin_Sel2_Pwr_Write(0);
+    Pin_Sel5_HV1_Write(0);
+    Pin_Sel6_HV2_Write(0);
    
-    Pin_Sel_Pwr_Write(0);
-    Pin_Sel_PHA_Write(0);
-    Pin_Sel_Ctr1_Write(0);
-    Pin_Sel_Tkr_Write(0);
-    Pin_Sel_Ctr3_Write(0);
+    Pin_Sel3_J16_Write(0);
+    Pin_Sel12_J17_Write(0);
+    Pin_Sel13_J18_Write(0);
+    Pin_Sel7_J20_Write(0);
+    
     
 		   /* Service USB CDC when device is configured. */
 //	if ((0u != USBUART_CD_GetConfiguration()) && (iBuffUsbTx > 0))
