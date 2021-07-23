@@ -10,8 +10,9 @@
  *
  *
  * Firmware for the Main PSOC on the AESOPLite DAQ board
- * V0-0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
- * V1-0 Changes to Select lines for new 2021 backplane
+ * V0.0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
+ * V1.0 Changes to Select lines for new 2021 backplane
+ * V1.1 Added I2C handling since bus is now divided
  *
  * ========================================
 */
@@ -24,7 +25,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 0 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 1 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -286,6 +287,37 @@ uint8 buffCmd[COMMAND_SOURCES][CMD_BUFFER_SIZE][2];
 uint8 readBuffCmd[COMMAND_SOURCES];// = 0;
 uint8 writeBuffCmd[COMMAND_SOURCES];// = 0;
 uint8 orderBuffCmd[COMMAND_SOURCES];
+
+// Register pointers for the power monitoring chips
+const uint8 INA226_Config_Reg = 0x00;
+const uint8 INA226_ShuntV_Reg = 0x01;
+const uint8 INA226_BusV_Reg = 0x02;
+const uint8 INA226_Power_Reg = 0x03;
+const uint8 INA226_Current_Reg = 0x04;
+const uint8 INA226_Calib_Reg = 0x05;
+const uint8 INA226_Mask_Reg = 0x06;
+const uint8 INA226_Alert_Reg = 0x07;
+
+const uint8 I2C_Address_TMP100 = '\x48';
+const uint8 TMP100_Temp_Reg = '\x00';
+const uint8 I2C_Address_Barometer = '\x70';
+const uint8 I2C_Address_RTC = '\x6F';
+const uint8 I2C_Address_INA226_5V_Dig = 0x81;
+
+typedef struct I2CTrans {
+	uint8 type;
+    uint8 slaveAddress;
+    uint8 * data;
+    uint8 cnt;
+    uint8 mode;
+	uint8 error;
+} I2CTrans;
+
+#define I2C_BUFFER_SIZE (16u)
+#define I2C_READ (1u)
+#define I2C_WRITE (0u)
+I2CTrans buffI2C[I2C_BUFFER_SIZE];
+uint8 buffI2CRead, buffI2CWrite;
 
 typedef struct BaroCoeff {
 	const double U0;
@@ -1028,6 +1060,26 @@ CY_ISR(ISRBaroCap)
 }
 
 
+uint8 CheckI2C()
+{
+    uint8 status = I2C_RTC_MasterStatus();
+    if( (status | I2C_RTC_MSTAT_XFER_INP ) == 0 )
+    {
+        
+        if( buffI2CRead != buffI2CWrite)
+        {
+            //TODO handle completion and errors
+            if(I2C_READ ==  buffI2C[buffI2CRead].type)
+            {
+                I2C_RTC_MasterReadBuf(buffI2C[buffI2CRead].slaveAddress, buffI2C[buffI2CRead].data, buffI2C[buffI2CRead].cnt, buffI2C[buffI2CRead].mode);
+                buffI2CRead = buffI2CWrite; //debug 1 transaction
+            }
+        }
+    }
+    
+    return 0;
+}
+
 int main(void)
 {
 //	uint8 status;
@@ -1156,6 +1208,17 @@ int main(void)
 	
 //	SendInitCmds();
 	isr_B_StartEx(ISRBaroCap);
+    
+    //Debug 1 read
+    buffI2CRead = 0;
+    buffI2CWrite = 1;
+    uint8 tmpI2Cdata[8];
+    buffI2C[buffI2CRead].type = I2C_READ;
+    buffI2C[buffI2CRead].slaveAddress = I2C_Address_INA226_5V_Dig;
+    buffI2C[buffI2CRead].data = tmpI2Cdata;
+    buffI2C[buffI2CRead].cnt = 8;
+    buffI2C[buffI2CRead].mode = I2C_RTC_MODE_COMPLETE_XFER;
+    
     
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
@@ -1621,7 +1684,7 @@ int main(void)
 		}
 //				if (NewTransmit)
 //		{
-		
+		CheckI2C();
 		//TODO Framing packets
 			 /* Service USB CDC when device is configured. */
 		if ((0u != USBUART_CD_GetConfiguration()) )//&& (iBuffUsbTx > 0))
