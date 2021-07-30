@@ -316,8 +316,10 @@ typedef struct I2CTrans {
 #define I2C_BUFFER_SIZE (16u)
 #define I2C_READ (1u)
 #define I2C_WRITE (0u)
+#define I2C_MAX_RETRIES (200u)
 I2CTrans buffI2C[I2C_BUFFER_SIZE];
 uint8 buffI2CRead, buffI2CWrite;
+uint8 numI2CRetry = 0;
 
 typedef struct BaroCoeff {
 	const double U0;
@@ -1062,19 +1064,75 @@ CY_ISR(ISRBaroCap)
 
 uint8 CheckI2C()
 {
-    uint8 status = I2C_RTC_MasterStatus();
-    if( (status | I2C_RTC_MSTAT_XFER_INP ) == 0 )
-    {
-        
-        if( buffI2CRead != buffI2CWrite)
+	if( buffI2CRead != buffI2CWrite)  //Check if any transactions
+	{
+        uint8 status = I2C_RTC_MasterStatus();
+        if( 0 == (status | I2C_RTC_MSTAT_XFER_INP )) //Check if busy
         {
+
+            uint8 errors = status | I2C_RTC_MSTAT_ERR_MASK;
             //TODO handle completion and errors
-            if(I2C_READ ==  buffI2C[buffI2CRead].type)
+            if( errors != 0)
             {
-                I2C_RTC_MasterReadBuf(buffI2C[buffI2CRead].slaveAddress, buffI2C[buffI2CRead].data, buffI2C[buffI2CRead].cnt, buffI2C[buffI2CRead].mode);
-                buffI2CRead = buffI2CWrite; //debug 1 transaction
+                buffI2C[buffI2CRead].error = errors;
+                WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                numI2CRetry = 0;
+            }
+            else if ( 0 == (status | I2C_RTC_MSTAT_RD_CMPLT ))
+            {
+                if(I2C_READ ==  buffI2C[buffI2CRead].type)
+                {
+                    buffI2C[buffI2CRead].error = 0;  
+                }
+                else 
+                {
+                    buffI2C[buffI2CRead].error = I2C_RTC_MSTAT_ERR_MASK; //TODO new Error for thei mismatch
+                }
+                WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                numI2CRetry = 0;
+            }
+            else if ( 0 == (status | I2C_RTC_MSTAT_WR_CMPLT ))
+            {
+                if(I2C_WRITE ==  buffI2C[buffI2CRead].type)
+                {
+                    buffI2C[buffI2CRead].error = 0;  
+                }
+                else 
+                {
+                    buffI2C[buffI2CRead].error = I2C_RTC_MSTAT_ERR_MASK; //TODO new Error for thei mismatch
+                }
+                WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                numI2CRetry = 0;
+            }
+            else //execute new transacttion
+            {
+                if(I2C_WRITE ==  buffI2C[buffI2CRead].type)
+                {
+                    errors = I2C_RTC_MasterWriteBuf(buffI2C[buffI2CRead].slaveAddress, buffI2C[buffI2CRead].data, buffI2C[buffI2CRead].cnt, buffI2C[buffI2CRead].mode);
+                    if (0 != errors)
+                    {
+                        //TODO handle individual errors
+                        numI2CRetry++;
+                    }
+                }
+                else if(I2C_READ ==  buffI2C[buffI2CRead].type)
+                {
+                    errors = I2C_RTC_MasterReadBuf(buffI2C[buffI2CRead].slaveAddress, buffI2C[buffI2CRead].data, buffI2C[buffI2CRead].cnt, buffI2C[buffI2CRead].mode);
+                    if (0 != errors)
+                    {
+                        //TODO handle individual errors
+                        numI2CRetry++;
+                    }
+                }
+                if (I2C_MAX_RETRIES <= numI2CRetry)
+                {
+                    buffI2C[buffI2CRead].error = errors;
+                    WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                    numI2CRetry = 0;
+                }
             }
         }
+        I2C_RTC_MasterClearStatus();
     }
     
     return 0;
@@ -1209,19 +1267,29 @@ int main(void)
 //	SendInitCmds();
 	isr_B_StartEx(ISRBaroCap);
     
-    //Debug 1 read
+    I2C_RTC_Start();
+    //Debug 1 write and read
     buffI2CRead = 0;
-    buffI2CWrite = 1;
+    buffI2CWrite = 2;
+    uint8 registerToRead = 0x01;
     uint8 tmpI2Cdata[8];
-    buffI2C[buffI2CRead].type = I2C_READ;
+    buffI2C[buffI2CRead].type = I2C_WRITE;
     buffI2C[buffI2CRead].slaveAddress = I2C_Address_INA226_5V_Dig;
-    buffI2C[buffI2CRead].data = tmpI2Cdata;
-    buffI2C[buffI2CRead].cnt = 8;
+    buffI2C[buffI2CRead].data = &registerToRead;
+    buffI2C[buffI2CRead].cnt = 1;
     buffI2C[buffI2CRead].mode = I2C_RTC_MODE_COMPLETE_XFER;
+    buffI2C[buffI2CRead + 1].type = I2C_READ;
+    buffI2C[buffI2CRead + 1].slaveAddress = I2C_Address_INA226_5V_Dig;
+    buffI2C[buffI2CRead + 1].data = tmpI2Cdata;
+    buffI2C[buffI2CRead + 1].cnt = 8;
+    buffI2C[buffI2CRead + 1].mode = I2C_RTC_MODE_COMPLETE_XFER;
+    
     
     
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
+    I2C_RTC_MasterClearStatus();
+    
 	for(;;)
 	{
 		
