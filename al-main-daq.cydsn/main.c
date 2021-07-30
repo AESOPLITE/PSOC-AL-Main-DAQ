@@ -98,7 +98,7 @@ const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
 #define EOR_HEAD	(0xFFu)
 #define DUMP_HEAD	(0xF5u)
 #define ENDDUMP_HEAD	(0xF7u)
-const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD, PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
+const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD}; //only power boards left , PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
 const uint8 frame00FF[2] = {0x00u, 0xFFu};
 uint8 buffSPI[NUM_SPI_DEV][SPI_BUFFER_SIZE];
 SPIBufferIndex buffSPIRead[NUM_SPI_DEV];
@@ -1066,19 +1066,23 @@ uint8 CheckI2C()
 {
 	if( buffI2CRead != buffI2CWrite)  //Check if any transactions
 	{
-        uint8 status = I2C_RTC_MasterStatus();
-        if( 0 == (status | I2C_RTC_MSTAT_XFER_INP )) //Check if busy
+        uint8 status;
+
+        status = I2C_RTC_MasterStatus();
+        if( 0 == (status & I2C_RTC_MSTAT_XFER_INP )) //Check if busy
         {
 
-            uint8 errors = status | I2C_RTC_MSTAT_ERR_MASK;
+            uint8 errors;
+            errors = (status & I2C_RTC_MSTAT_ERR_MASK);
+
             //TODO handle completion and errors
             if( errors != 0)
             {
                 buffI2C[buffI2CRead].error = errors;
-                WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
                 numI2CRetry = 0;
             }
-            else if ( 0 == (status | I2C_RTC_MSTAT_RD_CMPLT ))
+            else if ( 0 != (status & I2C_RTC_MSTAT_RD_CMPLT ))
             {
                 if(I2C_READ ==  buffI2C[buffI2CRead].type)
                 {
@@ -1088,10 +1092,10 @@ uint8 CheckI2C()
                 {
                     buffI2C[buffI2CRead].error = I2C_RTC_MSTAT_ERR_MASK; //TODO new Error for thei mismatch
                 }
-                WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
                 numI2CRetry = 0;
             }
-            else if ( 0 == (status | I2C_RTC_MSTAT_WR_CMPLT ))
+            else if ( 0 != (status & I2C_RTC_MSTAT_WR_CMPLT ))
             {
                 if(I2C_WRITE ==  buffI2C[buffI2CRead].type)
                 {
@@ -1101,7 +1105,7 @@ uint8 CheckI2C()
                 {
                     buffI2C[buffI2CRead].error = I2C_RTC_MSTAT_ERR_MASK; //TODO new Error for thei mismatch
                 }
-                WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
                 numI2CRetry = 0;
             }
             else //execute new transacttion
@@ -1127,7 +1131,7 @@ uint8 CheckI2C()
                 if (I2C_MAX_RETRIES <= numI2CRetry)
                 {
                     buffI2C[buffI2CRead].error = errors;
-                    WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                    buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
                     numI2CRetry = 0;
                 }
             }
@@ -1273,6 +1277,7 @@ int main(void)
     buffI2CWrite = 2;
     uint8 registerToRead = 0x01;
     uint8 tmpI2Cdata[8];
+    memset(tmpI2Cdata, 0, 8);
     buffI2C[buffI2CRead].type = I2C_WRITE;
     buffI2C[buffI2CRead].slaveAddress = I2C_Address_INA226_5V_Dig;
     buffI2C[buffI2CRead].data = &registerToRead;
