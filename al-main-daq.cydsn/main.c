@@ -24,7 +24,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 0 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 2 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -199,17 +199,17 @@ volatile uint8 continueRead = FALSE;
 //Coinc	FDB	$F838  ;T1 T2 T3 Coincidence
 //	FDB	$0AB7  ;10sec counter R/O
 //	FDB	$0AB6  ;10sec Power R/O
-#define TESTTHRESHOLD 0x03 //Just for intializing T3 G DAC thresholds
-#define TESTTHRESHOLDT1 0x01 //Just for intializing T1 DAC thresholds
-#define TESTTHRESHOLDT4 0x03 //Just for intializing T4 DAC threshold
+//#define TESTTHRESHOLD 0x04 //Just for intializing T3 G DAC thresholds
+//#define TESTTHRESHOLDT1 0x04 //Just for intializing T1 DAC thresholds
+//#define TESTTHRESHOLDT4 0x03 //Just for intializing T4 DAC threshold
 
 //AESOPLite Initialization Commands
 #define NUMBER_INIT_CMDS	(32 + 39)
 uint8 initCmd[NUMBER_INIT_CMDS][2] = {
-	{0xA7, 0x35}, //T1 1431.6 High Voltage
+	{0xC3, 0x35}, //T1 1671.6 High Voltage
 	{0xDD, 0x36}, //T2 1860.7
 	{0xCA, 0x37}, //T3 1704.7
-	{0xB9, 0xB5}, //T4 1553.3
+	{0xC7, 0xB5}, //T4 1670.8
 	{0xCB, 0x74}, //G  1706.8
 	{0x00, 0x39}, //Dual PHA card 0, All PHA Discriminators set to 7.0
 	{0x07, 0x3A}, //T1
@@ -253,16 +253,16 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 	{0x3C, 0x23},  //DAC Byte LSB
     {0x01, 0x22},  //Header for DAC Threshold Set
 	{0x01, 0x21},  //Channel 1 G
-	{TESTTHRESHOLD, 0x22},  //DAC Byte
+	{0x03, 0x22},  //DAC Byte
     {0x01, 0x22},  //Header for DAC Threshold Set
 	{0x02, 0x21},  //Channel 2 T3
-	{TESTTHRESHOLD, 0x22},  //DAC Byte
+	{0x04, 0x22},  //DAC Byte
     {0x01, 0x22},  //Header for DAC Threshold Set
 	{0x03, 0x21},  //Channel 3 T1
-	{TESTTHRESHOLDT1, 0x22},  //DAC Byte
+	{0x04, 0x22},  //DAC Byte
     {0x01, 0x22},  //Header for DAC Threshold Set
 	{0x04, 0x21},  //Channel 4 T4
-	{TESTTHRESHOLDT4, 0x22},  //DAC Byte    
+	{0x03, 0x22},  //DAC Byte    
     {0x36, 0x22},  //Header for Trigger Mask Set
 	{0x01, 0x21},  //Mask 1 
 	{0x06, 0x22},  //Trigger Mask 06 T1 T4
@@ -277,7 +277,7 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
     {0x30, 0x21},  //Header for Output Mode Set
 	{0x00, 0x21},  //0 SPI output 
     {0x3B, 0x21},  //Header Trigger Enable Set
-	{0x01, 0x21},  //Trigger Enabled
+	{0x00, 0x21},  //DEBUG Trigger Disabled, change back to Trigger Enabled
 //	{0x03, 0x20},  //Read Errors DEBUG
 //	{0x03, 0x20},  //Read Errors DEBUG
     }; //End init cmds
