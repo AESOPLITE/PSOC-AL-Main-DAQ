@@ -13,6 +13,7 @@
  * V0.0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
  * V1.0 Changes to Select lines for new 2021 backplane
  * V1.1 Added I2C handling since bus is now divided
+ * V1.2 Changed Init commands for T2 testing with python script
  * V1.3 Added RTC internal initilization from I2C RTC
  *
  * ========================================
