@@ -15,6 +15,7 @@
  * V1.1 Added I2C handling since bus is now divided
  * V1.2 Changed Init commands for T2 testing with python script
  * V1.3 Added RTC internal initilization from I2C RTC
+ * V1.4 Added RTC write default date to I2C RTC
  *
  * ========================================
 */
@@ -27,7 +28,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 3 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 4 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -288,7 +289,7 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 #define CMD_BUFFER_SIZE (NUMBER_INIT_CMDS + NUMBER_INIT_CMDS)
 uint8 buffCmd[COMMAND_SOURCES][CMD_BUFFER_SIZE][2];
 uint8 readBuffCmd[COMMAND_SOURCES];// = 0;
-uint8 writeBuffCmd[COMMAND_SOURCES];// = 0;
+volatile uint8 writeBuffCmd[COMMAND_SOURCES];// = 0;
 uint8 orderBuffCmd[COMMAND_SOURCES];
 
 
@@ -321,8 +322,17 @@ uint8 rtcStatus;
 #define RTS_SET_MAIN_INP    (0x10)
 #define RTS_SET_I2C_INP     (0x20)
 
-#define DATA_RTS_I2C_BYTES   (7u)
-uint8 dataRTSI2C[DATA_RTS_I2C_BYTES];
+#define DATA_RTS_I2C_BYTES   (8u)
+uint8 dataRTSI2C[DATA_RTS_I2C_BYTES] = {
+0x00, //Register addresss for seconds, start of trans
+0x40, //Sec Register to init , MSb write starts clock
+0x00, //Min Register
+0x00, //Hour Register
+0x00, //Day Register
+(MINOR_VERSION & 0x17), //Date Register, use version to produce a default value
+(MAJOR_VERSION & 0x17), //Month Register, use version to produce a default value
+0x00}; //Year Register
+
 
 uint8 curRTSI2CTrans = I2C_BUFFER_SIZE;
 
@@ -528,7 +538,7 @@ int ParseCmdInputByte(uint8 tempRx, uint8 i)
                 int tempRes = CmdBytes2String(cmdRxC[i], curCmd);
                 if(tempRes >= 0)
                 {
-                    tempRes = SendCmdString(curCmd);  
+                    tempRes = SendCmdString(curCmd);  //TODO change this with considerations for commands like RTC set and duplicates
                     if (-EBUSY == tempRes)
                     {
                         memcpy(buffCmd[i][writeBuffCmd[i]], cmdRxC[i], 2); //busy queue for later
@@ -752,7 +762,7 @@ uint8 CheckRTC()
         if ( (0 != buffI2C[curRTSI2CTrans].error) && ( ISELEMENTDONE(curRTSI2CTrans, buffI2CRead, buffI2CWrite)))
         {
             //TODO error handling
-            rtcStatus |= RTS_SET_MAIN;
+            rtcStatus |= RTS_SET_MAIN; //Retry forever DEBUG
             rtcStatus ^= RTS_SET_MAIN_INP;
         }
         else if (ISELEMENTDONE(curRTSI2CTrans2, buffI2CRead, buffI2CWrite))
@@ -760,43 +770,134 @@ uint8 CheckRTC()
             if (0 != buffI2C[curRTSI2CTrans2].error)
             {
                 //TODO error handling
-                rtcStatus |= RTS_SET_MAIN;
+                rtcStatus |= RTS_SET_MAIN; //Retry forever DEBUG
                 rtcStatus ^= RTS_SET_MAIN_INP;
             }   
             else
             {
                 
-                mainTimeDate->Sec = BCD2Dec(dataRTSI2C[0] & 0x7F);
-                mainTimeDate->Min = BCD2Dec(dataRTSI2C[1] & 0x7F);
-                mainTimeDate->Hour = BCD2Dec(dataRTSI2C[2] & 0x7F);
-                mainTimeDate->DayOfWeek = (dataRTSI2C[3] & 0x07) + 1; // i2c: 0=Monday; internal: 1=Monday
-                mainTimeDate->DayOfMonth = BCD2Dec(dataRTSI2C[4] & 0x3F);
-                mainTimeDate->Month = BCD2Dec(dataRTSI2C[5] & 0x1F);
-                mainTimeDate->Year = BCD2Dec(dataRTSI2C[6] & 0x7F) + 2000;
+                mainTimeDate->Sec = BCD2Dec(dataRTSI2C[1] & 0x7F);
+                mainTimeDate->Min = BCD2Dec(dataRTSI2C[2] & 0x7F);
+                mainTimeDate->Hour = BCD2Dec(dataRTSI2C[3] & 0x1F);
+                mainTimeDate->DayOfWeek = (dataRTSI2C[4] & 0x07) + 1; // i2c: 0=Monday; internal: 1=Monday
+                mainTimeDate->DayOfMonth = BCD2Dec(dataRTSI2C[5] & 0x3F);
+                mainTimeDate->Month = BCD2Dec(dataRTSI2C[6] & 0x1F);
+                mainTimeDate->Year = BCD2Dec(dataRTSI2C[7]) + 2000;
                 RTC_Main_WriteTime(mainTimeDate);
                 rtcStatus ^= RTS_SET_MAIN_INP;
             }
         }
     }
-    if (0 != (rtcStatus & RTS_SET_MAIN))
+    else if (0 != (rtcStatus & RTS_SET_I2C_INP))
+    {
+        if ( ISELEMENTDONE(curRTSI2CTrans, buffI2CRead, buffI2CWrite))
+        {
+            if (0 != buffI2C[curRTSI2CTrans].error)
+            {
+                //TODO error handling
+                rtcStatus |= RTS_SET_I2C; //Retry  forever DEBUG
+            }
+            rtcStatus ^= RTS_SET_I2C_INP;
+        }
+    }
+    else if (0 != (rtcStatus & RTS_SET_MAIN))
     {
         curRTSI2CTrans = buffI2CWrite;
         buffI2CWrite = WRAP(buffI2CWrite + 2, I2C_BUFFER_SIZE);
         
         buffI2C[curRTSI2CTrans].type = I2C_WRITE;
         buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans].data = &TMP100_Temp_Reg;
+        buffI2C[curRTSI2CTrans].data = dataRTSI2C;
         buffI2C[curRTSI2CTrans].cnt = 1;
         buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
         
         uint8 curRTSI2CTrans2 = WRAPINC(curRTSI2CTrans, I2C_BUFFER_SIZE);
         buffI2C[curRTSI2CTrans2].type = I2C_READ;
         buffI2C[curRTSI2CTrans2].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans2].data = dataRTSI2C;
+        buffI2C[curRTSI2CTrans2].data = (dataRTSI2C +1); //0 element is register address to write
         buffI2C[curRTSI2CTrans2].cnt = 7;
         buffI2C[curRTSI2CTrans2].mode = I2C_RTC_MODE_COMPLETE_XFER;
         rtcStatus |= RTS_SET_MAIN_INP;
         rtcStatus ^= RTS_SET_MAIN;
+    }
+    else if (0 != (rtcStatus & RTS_SET_I2C))
+    {
+        curRTSI2CTrans = buffI2CWrite;
+        buffI2CWrite = WRAPINC(buffI2CWrite, I2C_BUFFER_SIZE);
+        
+        buffI2C[curRTSI2CTrans].type = I2C_WRITE;
+        buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
+        buffI2C[curRTSI2CTrans].data = dataRTSI2C;
+        buffI2C[curRTSI2CTrans].cnt = 8;
+        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
+        
+        rtcStatus |= RTS_SET_I2C_INP;
+        rtcStatus ^= RTS_SET_I2C;
+    }
+    else if (0 != (rtcStatus & RTS_SET_I2C))
+    {
+        curRTSI2CTrans = buffI2CWrite;
+        buffI2CWrite = WRAPINC(buffI2CWrite, I2C_BUFFER_SIZE);
+        
+        buffI2C[curRTSI2CTrans].type = I2C_WRITE;
+        buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
+        buffI2C[curRTSI2CTrans].data = dataRTSI2C;
+        buffI2C[curRTSI2CTrans].cnt = 8;
+        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
+        
+        rtcStatus |= RTS_SET_I2C_INP;
+        rtcStatus ^= RTS_SET_I2C;
+    }
+    else if (0 != (rtcStatus & RTS_SET_EVENT))
+    {
+        uint8 tmpOrder = orderBuffCmd[0];
+        uint8 tmpWrite = writeBuffCmd[tmpOrder];
+        //TOD0 check that this doesn't pass read
+        uint8 intState = CyEnterCriticalSection();
+        writeBuffCmd[tmpOrder] = WRAP(writeBuffCmd[tmpOrder] + 11, CMD_BUFFER_SIZE);
+        CyExitCriticalSection(intState);
+        mainTimeDate = RTC_Main_ReadTime();
+        buffCmd[tmpOrder][tmpWrite][0] = 0x45; //Set RTC command
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA2; //8 Address, 10 bytes
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Sec; //Sec
+        buffCmd[tmpOrder][tmpWrite][1] = 0x21; //byte #1
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Min; //Min
+        buffCmd[tmpOrder][tmpWrite][1] = 0x22; //byte #2
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Hour; //Hour
+        buffCmd[tmpOrder][tmpWrite][1] = 0x23; //byte #3
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->DayOfWeek; //DayOfWeek
+        buffCmd[tmpOrder][tmpWrite][1] = 0x60; //byte #4
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->DayOfMonth; //DayOfMonth
+        buffCmd[tmpOrder][tmpWrite][1] = 0x61; //byte #5
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*)(((uint8*) &(mainTimeDate->DayOfYear)) + 1)); //DayOfYear MSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0x62; //byte #6
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*) &(mainTimeDate->DayOfYear)); //DayOfYear LSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0x63; //byte #7
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Month; //DayOfMonth
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA0; //byte #8
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*)(((uint8*) &(mainTimeDate->Year)) + 1)); //DayOfYear MSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA1; //byte #9
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*) &(mainTimeDate->Year)); //DayOfYear LSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA2; //byte #10
+
+        rtcStatus ^= RTS_SET_EVENT;
+    }
+    else if (0 != (rtcStatus & RTS_SET_RPI))
+    {
+    
+        //TODO Rpi commands
+        
+        rtcStatus ^= RTS_SET_RPI;
     }
     return 0;
 }
