@@ -795,6 +795,7 @@ uint8 CheckRTC()
         buffI2C[curRTSI2CTrans2].data = dataRTSI2C;
         buffI2C[curRTSI2CTrans2].cnt = 7;
         buffI2C[curRTSI2CTrans2].mode = I2C_RTC_MODE_COMPLETE_XFER;
+        rtcStatus |= RTS_SET_MAIN_INP;
         rtcStatus ^= RTS_SET_MAIN;
     }
     return 0;
@@ -1848,6 +1849,7 @@ int main(void)
 //				if (NewTransmit)
 //		{
 		CheckI2C();
+        CheckRTC();
 		//TODO Framing packets
 			 /* Service USB CDC when device is configured. */
 		if ((0u != USBUART_CD_GetConfiguration()) )//&& (iBuffUsbTx > 0))
