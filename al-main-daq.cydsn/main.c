@@ -810,29 +810,16 @@ uint8 CheckRTC()
         buffI2C[curRTSI2CTrans].data = dataRTSI2C;
         buffI2C[curRTSI2CTrans].cnt = 1;
         buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
+//        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_NO_STOP;
         
         uint8 curRTSI2CTrans2 = WRAPINC(curRTSI2CTrans, I2C_BUFFER_SIZE);
         buffI2C[curRTSI2CTrans2].type = I2C_READ;
         buffI2C[curRTSI2CTrans2].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans2].data = (dataRTSI2C +1); //0 element is register address to write
+        buffI2C[curRTSI2CTrans2].data = (dataRTSI2C + 1); //0 element is register address to write
         buffI2C[curRTSI2CTrans2].cnt = 7;
         buffI2C[curRTSI2CTrans2].mode = I2C_RTC_MODE_COMPLETE_XFER;
         rtcStatus |= RTS_SET_MAIN_INP;
         rtcStatus ^= RTS_SET_MAIN;
-    }
-    else if (0 != (rtcStatus & RTS_SET_I2C))
-    {
-        curRTSI2CTrans = buffI2CWrite;
-        buffI2CWrite = WRAPINC(buffI2CWrite, I2C_BUFFER_SIZE);
-        
-        buffI2C[curRTSI2CTrans].type = I2C_WRITE;
-        buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans].data = dataRTSI2C;
-        buffI2C[curRTSI2CTrans].cnt = 8;
-        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
-        
-        rtcStatus |= RTS_SET_I2C_INP;
-        rtcStatus ^= RTS_SET_I2C;
     }
     else if (0 != (rtcStatus & RTS_SET_I2C))
     {
@@ -1486,7 +1473,7 @@ int main(void)
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
     I2C_RTC_MasterClearStatus();
-    rtcStatus = RTS_SET_MAIN; //CheckRTC will set to ISC RTC
+    rtcStatus = 0x00; //CheckRTC will set to ISC RTC
 	for(;;)
 	{
 		
