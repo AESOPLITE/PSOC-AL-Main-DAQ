@@ -325,7 +325,7 @@ uint8 rtcStatus;
 #define DATA_RTS_I2C_BYTES   (8u)
 uint8 dataRTSI2C[DATA_RTS_I2C_BYTES] = {
 0x00, //Register addresss for seconds, start of trans
-0x40, //Sec Register to init , MSb write starts clock
+0x80, //Sec Register to init , MSb write starts clock
 0x00, //Min Register
 0x00, //Hour Register
 0x00, //Day Register
