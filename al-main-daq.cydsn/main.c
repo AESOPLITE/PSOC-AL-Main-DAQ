@@ -350,7 +350,7 @@ const uint8 I2C_Address_TMP100 = 0x48;
 const uint8 TMP100_Temp_Reg = 0x00;
 const uint8 I2C_Address_Barometer = 0x70;
 const uint8 I2C_Address_RTC = 0x6F;
-const uint8 I2C_Address_INA226_5V_Dig = 0x81;
+const uint8 I2C_Address_INA226_5V_Dig = 0x41;
 
 
 typedef struct BaroCoeff {
