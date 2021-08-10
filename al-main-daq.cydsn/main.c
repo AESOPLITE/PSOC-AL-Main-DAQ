@@ -323,7 +323,7 @@ uint8 rtcStatus;
 #define RTS_SET_I2C_INP     (0x20)
 
 #define DATA_RTS_I2C_BYTES   (8u)
-uint8 dataRTSI2C[DATA_RTS_I2C_BYTES] = {
+uint8 dataRTCI2C[DATA_RTS_I2C_BYTES] = {
 0x00, //Register addresss for seconds, start of trans
 0x80, //Sec Register to init , MSb write starts clock
 0x00, //Min Register
@@ -776,13 +776,13 @@ uint8 CheckRTC()
             else
             {
                 
-                mainTimeDate->Sec = BCD2Dec(dataRTSI2C[1] & 0x7F);
-                mainTimeDate->Min = BCD2Dec(dataRTSI2C[2] & 0x7F);
-                mainTimeDate->Hour = BCD2Dec(dataRTSI2C[3] & 0x1F);
-                mainTimeDate->DayOfWeek = (dataRTSI2C[4] & 0x07) + 1; // i2c: 0=Monday; internal: 1=Monday
-                mainTimeDate->DayOfMonth = BCD2Dec(dataRTSI2C[5] & 0x3F);
-                mainTimeDate->Month = BCD2Dec(dataRTSI2C[6] & 0x1F);
-                mainTimeDate->Year = BCD2Dec(dataRTSI2C[7]) + 2000;
+                mainTimeDate->Sec = BCD2Dec(dataRTCI2C[1] & 0x7F);
+                mainTimeDate->Min = BCD2Dec(dataRTCI2C[2] & 0x7F);
+                mainTimeDate->Hour = BCD2Dec(dataRTCI2C[3] & 0x1F);
+//                mainTimeDate->DayOfWeek = (dataRTCI2C[4] & 0x07); //0 is not valid and WriteTime doesn't modify this
+                mainTimeDate->DayOfMonth = BCD2Dec(dataRTCI2C[5] & 0x3F);
+                mainTimeDate->Month = BCD2Dec(dataRTCI2C[6] & 0x1F);
+                mainTimeDate->Year = BCD2Dec(dataRTCI2C[7]) + 2000;
                 RTC_Main_WriteTime(mainTimeDate);
                 rtcStatus ^= RTS_SET_MAIN_INP;
             }
@@ -807,7 +807,7 @@ uint8 CheckRTC()
         
         buffI2C[curRTSI2CTrans].type = I2C_WRITE;
         buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans].data = dataRTSI2C;
+        buffI2C[curRTSI2CTrans].data = dataRTCI2C;
         buffI2C[curRTSI2CTrans].cnt = 1;
         buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
 //        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_NO_STOP;
@@ -815,7 +815,7 @@ uint8 CheckRTC()
         uint8 curRTSI2CTrans2 = WRAPINC(curRTSI2CTrans, I2C_BUFFER_SIZE);
         buffI2C[curRTSI2CTrans2].type = I2C_READ;
         buffI2C[curRTSI2CTrans2].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans2].data = (dataRTSI2C + 1); //0 element is register address to write
+        buffI2C[curRTSI2CTrans2].data = (dataRTCI2C + 1); //0 element is register address to write
         buffI2C[curRTSI2CTrans2].cnt = 7;
         buffI2C[curRTSI2CTrans2].mode = I2C_RTC_MODE_COMPLETE_XFER;
         rtcStatus |= RTS_SET_MAIN_INP;
@@ -828,7 +828,7 @@ uint8 CheckRTC()
         
         buffI2C[curRTSI2CTrans].type = I2C_WRITE;
         buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
-        buffI2C[curRTSI2CTrans].data = dataRTSI2C;
+        buffI2C[curRTSI2CTrans].data = dataRTCI2C;
         buffI2C[curRTSI2CTrans].cnt = 8;
         buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
         
