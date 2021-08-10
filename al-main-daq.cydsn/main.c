@@ -328,7 +328,7 @@ uint8 dataRTSI2C[DATA_RTS_I2C_BYTES] = {
 0x80, //Sec Register to init , MSb write starts clock
 0x00, //Min Register
 0x00, //Hour Register
-0x00, //Day Register
+0x09, //Day Register with Batt enable and Day 1
 (MINOR_VERSION & 0x17), //Date Register, use version to produce a default value
 (MAJOR_VERSION & 0x17), //Month Register, use version to produce a default value
 0x00}; //Year Register
