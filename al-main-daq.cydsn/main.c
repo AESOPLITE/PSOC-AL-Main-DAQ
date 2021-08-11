@@ -839,7 +839,7 @@ uint8 CheckRTC()
     {
         uint8 tmpOrder = orderBuffCmd[0];
         uint8 tmpWrite = writeBuffCmd[tmpOrder];
-        //TOD0 check that this doesn't pass read
+        //TOD0 check that this doesn't pass read index in the command buffer
         uint8 intState = CyEnterCriticalSection();
         writeBuffCmd[tmpOrder] = WRAP(writeBuffCmd[tmpOrder] + 11, CMD_BUFFER_SIZE);
         CyExitCriticalSection(intState);
@@ -1473,7 +1473,7 @@ int main(void)
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
     I2C_RTC_MasterClearStatus();
-    rtcStatus = 0x00; //CheckRTC will set to ISC RTC
+    rtcStatus = 0x00; //changing flags in this will change startup behavior of RTCs
 	for(;;)
 	{
 		
