@@ -10,8 +10,12 @@
  *
  *
  * Firmware for the Main PSOC on the AESOPLite DAQ board
- * V0-0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
- * V1-0 Changes to Select lines for new 2021 backplane
+ * V0.0 DON'T Run on new 2021 Backplane, developed on Lee backplane. basic commands forward to backplane event psoc.  Data is running with filler and not aware of Event PSOC data structure.
+ * V1.0 Changes to Select lines for new 2021 backplane
+ * V1.1 Added I2C handling since bus is now divided
+ * V1.2 Changed Init commands for T2 testing with python script
+ * V1.3 Added RTC internal initilization from I2C RTC
+ * V1.4 Added RTC write default date to I2C RTC
  *
  * ========================================
 */
@@ -24,13 +28,14 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 2 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 4 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
 #define WRAPINC(a,b) ((a + 1) % (b))
 #define WRAP3INC(a,b) ((a + 3) % (b))
 #define WRAP(a,b) ((a) % (b)) //Macro to bring new calculated index a into the bounds of a circular buffer of size b
+#define ISELEMENTDONE(a,b,c) ((b <= c) ? ((a < b) || (a >= c)) : ((a < b) && (a >= c)) )//used to determin if element in circular buffer is done 
 
 // From LROA103.ASM
 //;The format for the serial command is:
@@ -97,7 +102,7 @@ const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
 #define EOR_HEAD	(0xFFu)
 #define DUMP_HEAD	(0xF5u)
 #define ENDDUMP_HEAD	(0xF7u)
-const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD};//, PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
+const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD}; //only power boards left , PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
 const uint8 frame00FF[2] = {0x00u, 0xFFu};
 uint8 buffSPI[NUM_SPI_DEV][SPI_BUFFER_SIZE];
 SPIBufferIndex buffSPIRead[NUM_SPI_DEV];
@@ -284,8 +289,69 @@ uint8 initCmd[NUMBER_INIT_CMDS][2] = {
 #define CMD_BUFFER_SIZE (NUMBER_INIT_CMDS + NUMBER_INIT_CMDS)
 uint8 buffCmd[COMMAND_SOURCES][CMD_BUFFER_SIZE][2];
 uint8 readBuffCmd[COMMAND_SOURCES];// = 0;
-uint8 writeBuffCmd[COMMAND_SOURCES];// = 0;
+volatile uint8 writeBuffCmd[COMMAND_SOURCES];// = 0;
 uint8 orderBuffCmd[COMMAND_SOURCES];
+
+
+
+typedef struct I2CTrans {
+	uint8 type;
+    uint8 slaveAddress;
+    uint8 * data;
+    uint8 cnt;
+    uint8 mode;
+	uint8 error;
+} I2CTrans;
+
+#define I2C_BUFFER_SIZE (16u)
+#define I2C_READ (1u)
+#define I2C_WRITE (0u)
+#define I2C_MAX_RETRIES (200u)
+I2CTrans buffI2C[I2C_BUFFER_SIZE];
+uint8 buffI2CRead, buffI2CWrite;
+uint8 numI2CRetry = 0;
+
+
+RTC_Main_TIME_DATE* mainTimeDate;
+
+uint8 rtcStatus; 
+#define RTS_SET_MAIN        (0x01)
+#define RTS_SET_I2C         (0x02)
+#define RTS_SET_EVENT       (0x04)
+#define RTS_SET_RPI         (0x08)
+#define RTS_SET_MAIN_INP    (0x10)
+#define RTS_SET_I2C_INP     (0x20)
+
+#define DATA_RTS_I2C_BYTES   (8u)
+uint8 dataRTCI2C[DATA_RTS_I2C_BYTES] = {
+0x00, //Register addresss for seconds, start of trans
+0x80, //Sec Register to init , MSb write starts clock
+0x00, //Min Register
+0x00, //Hour Register
+0x09, //Day Register with Batt enable and Day 1
+(MINOR_VERSION & 0x17), //Date Register, use version to produce a default value
+(MAJOR_VERSION & 0x17), //Month Register, use version to produce a default value
+0x00}; //Year Register
+
+
+uint8 curRTSI2CTrans = I2C_BUFFER_SIZE;
+
+// Register pointers for the power monitoring chips
+const uint8 INA226_Config_Reg = 0x00;
+const uint8 INA226_ShuntV_Reg = 0x01;
+const uint8 INA226_BusV_Reg = 0x02;
+const uint8 INA226_Power_Reg = 0x03;
+const uint8 INA226_Current_Reg = 0x04;
+const uint8 INA226_Calib_Reg = 0x05;
+const uint8 INA226_Mask_Reg = 0x06;
+const uint8 INA226_Alert_Reg = 0x07;
+
+const uint8 I2C_Address_TMP100 = 0x48;
+const uint8 TMP100_Temp_Reg = 0x00;
+const uint8 I2C_Address_Barometer = 0x70;
+const uint8 I2C_Address_RTC = 0x6F;
+const uint8 I2C_Address_INA226_5V_Dig = 0x41;
+
 
 typedef struct BaroCoeff {
 	const double U0;
@@ -363,6 +429,17 @@ int CmdBytes2String (uint8* in, uint8* out)
         return -EFAULT; //null pointer error, sprint might also do this
     }
 	return sprintf((char*)out, "%02X%02X", *(in), *(in + 1)); //converts the 2 bytes to hex with leading zerosv
+}
+
+uint8 BCD2Dec( uint8 bcd )
+{
+    return bcd - (6 * (bcd >> 4));
+}
+uint8 Dec2BCD( uint8 dec )
+{
+    uint16 num16 = dec;
+    uint16 num8 = (uint8)((num16 * 103) >> 10);
+    return dec + (6 * num8);
 }
 
 int SendCmdString (uint8 * in)
@@ -461,7 +538,7 @@ int ParseCmdInputByte(uint8 tempRx, uint8 i)
                 int tempRes = CmdBytes2String(cmdRxC[i], curCmd);
                 if(tempRes >= 0)
                 {
-                    tempRes = SendCmdString(curCmd);  
+                    tempRes = SendCmdString(curCmd);  //TODO change this with considerations for commands like RTC set and duplicates
                     if (-EBUSY == tempRes)
                     {
                         memcpy(buffCmd[i][writeBuffCmd[i]], cmdRxC[i], 2); //busy queue for later
@@ -595,7 +672,222 @@ int CheckCmdBuffers()
     return 0;
 }
 
+uint8 CheckI2C()
+{
+	if( buffI2CRead != buffI2CWrite)  //Check if any transactions
+	{
+        uint8 status;
 
+        status = I2C_RTC_MasterStatus();
+        if( 0 == (status & I2C_RTC_MSTAT_XFER_INP )) //Check if busy
+        {
+
+            uint8 errors;
+            errors = (status & I2C_RTC_MSTAT_ERR_MASK);
+
+            //TODO handle completion and errors
+            if( errors != 0)
+            {
+                buffI2C[buffI2CRead].error = errors;
+                buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                numI2CRetry = 0;
+            }
+            else if ( 0 != (status & I2C_RTC_MSTAT_RD_CMPLT ))
+            {
+                if(I2C_READ ==  buffI2C[buffI2CRead].type)
+                {
+                    buffI2C[buffI2CRead].error = 0;  
+                }
+                else 
+                {
+                    buffI2C[buffI2CRead].error = I2C_RTC_MSTAT_ERR_MASK; //TODO new Error for thei mismatch
+                }
+                buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                numI2CRetry = 0;
+            }
+            else if ( 0 != (status & I2C_RTC_MSTAT_WR_CMPLT ))
+            {
+                if(I2C_WRITE ==  buffI2C[buffI2CRead].type)
+                {
+                    buffI2C[buffI2CRead].error = 0;  
+                }
+                else 
+                {
+                    buffI2C[buffI2CRead].error = I2C_RTC_MSTAT_ERR_MASK; //TODO new Error for thei mismatch
+                }
+                buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                numI2CRetry = 0;
+            }
+            else //execute new transacttion
+            {
+                if(I2C_WRITE ==  buffI2C[buffI2CRead].type)
+                {
+                    errors = I2C_RTC_MasterWriteBuf(buffI2C[buffI2CRead].slaveAddress, buffI2C[buffI2CRead].data, buffI2C[buffI2CRead].cnt, buffI2C[buffI2CRead].mode);
+                    if (0 != errors)
+                    {
+                        //TODO handle individual errors
+                        numI2CRetry++;
+                    }
+                }
+                else if(I2C_READ ==  buffI2C[buffI2CRead].type)
+                {
+                    errors = I2C_RTC_MasterReadBuf(buffI2C[buffI2CRead].slaveAddress, buffI2C[buffI2CRead].data, buffI2C[buffI2CRead].cnt, buffI2C[buffI2CRead].mode);
+                    if (0 != errors)
+                    {
+                        //TODO handle individual errors
+                        numI2CRetry++;
+                    }
+                }
+                if (I2C_MAX_RETRIES <= numI2CRetry)
+                {
+                    buffI2C[buffI2CRead].error = errors;
+                    buffI2CRead = WRAPINC(buffI2CRead, I2C_BUFFER_SIZE);
+                    numI2CRetry = 0;
+                }
+            }
+        }
+        I2C_RTC_MasterClearStatus();
+    }
+    
+    return 0;
+}
+
+
+
+uint8 CheckRTC()
+{
+    if (0 != (rtcStatus & RTS_SET_MAIN_INP))
+    {
+        uint8 curRTSI2CTrans2 = WRAPINC(curRTSI2CTrans, I2C_BUFFER_SIZE);
+        if ( (0 != buffI2C[curRTSI2CTrans].error) && ( ISELEMENTDONE(curRTSI2CTrans, buffI2CRead, buffI2CWrite)))
+        {
+            //TODO error handling
+            rtcStatus |= RTS_SET_MAIN; //Retry forever DEBUG
+            rtcStatus ^= RTS_SET_MAIN_INP;
+        }
+        else if (ISELEMENTDONE(curRTSI2CTrans2, buffI2CRead, buffI2CWrite))
+        {
+            if (0 != buffI2C[curRTSI2CTrans2].error)
+            {
+                //TODO error handling
+                rtcStatus |= RTS_SET_MAIN; //Retry forever DEBUG
+                rtcStatus ^= RTS_SET_MAIN_INP;
+            }   
+            else
+            {
+                
+                mainTimeDate->Sec = BCD2Dec(dataRTCI2C[1] & 0x7F);
+                mainTimeDate->Min = BCD2Dec(dataRTCI2C[2] & 0x7F);
+                mainTimeDate->Hour = BCD2Dec(dataRTCI2C[3] & 0x1F);
+//                mainTimeDate->DayOfWeek = (dataRTCI2C[4] & 0x07); //0 is not valid and WriteTime doesn't modify this
+                mainTimeDate->DayOfMonth = BCD2Dec(dataRTCI2C[5] & 0x3F);
+                mainTimeDate->Month = BCD2Dec(dataRTCI2C[6] & 0x1F);
+                mainTimeDate->Year = BCD2Dec(dataRTCI2C[7]) + 2000;
+                RTC_Main_WriteTime(mainTimeDate);
+                rtcStatus ^= RTS_SET_MAIN_INP;
+            }
+        }
+    }
+    else if (0 != (rtcStatus & RTS_SET_I2C_INP))
+    {
+        if ( ISELEMENTDONE(curRTSI2CTrans, buffI2CRead, buffI2CWrite))
+        {
+            if (0 != buffI2C[curRTSI2CTrans].error)
+            {
+                //TODO error handling
+                rtcStatus |= RTS_SET_I2C; //Retry  forever DEBUG
+            }
+            rtcStatus ^= RTS_SET_I2C_INP;
+        }
+    }
+    else if (0 != (rtcStatus & RTS_SET_MAIN))
+    {
+        curRTSI2CTrans = buffI2CWrite;
+        buffI2CWrite = WRAP(buffI2CWrite + 2, I2C_BUFFER_SIZE);
+        
+        buffI2C[curRTSI2CTrans].type = I2C_WRITE;
+        buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
+        buffI2C[curRTSI2CTrans].data = dataRTCI2C;
+        buffI2C[curRTSI2CTrans].cnt = 1;
+        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
+//        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_NO_STOP;
+        
+        uint8 curRTSI2CTrans2 = WRAPINC(curRTSI2CTrans, I2C_BUFFER_SIZE);
+        buffI2C[curRTSI2CTrans2].type = I2C_READ;
+        buffI2C[curRTSI2CTrans2].slaveAddress = I2C_Address_RTC;
+        buffI2C[curRTSI2CTrans2].data = (dataRTCI2C + 1); //0 element is register address to write
+        buffI2C[curRTSI2CTrans2].cnt = 7;
+        buffI2C[curRTSI2CTrans2].mode = I2C_RTC_MODE_COMPLETE_XFER;
+        rtcStatus |= RTS_SET_MAIN_INP;
+        rtcStatus ^= RTS_SET_MAIN;
+    }
+    else if (0 != (rtcStatus & RTS_SET_I2C))
+    {
+        curRTSI2CTrans = buffI2CWrite;
+        buffI2CWrite = WRAPINC(buffI2CWrite, I2C_BUFFER_SIZE);
+        
+        buffI2C[curRTSI2CTrans].type = I2C_WRITE;
+        buffI2C[curRTSI2CTrans].slaveAddress = I2C_Address_RTC;
+        buffI2C[curRTSI2CTrans].data = dataRTCI2C;
+        buffI2C[curRTSI2CTrans].cnt = 8;
+        buffI2C[curRTSI2CTrans].mode = I2C_RTC_MODE_COMPLETE_XFER;
+        
+        rtcStatus |= RTS_SET_I2C_INP;
+        rtcStatus ^= RTS_SET_I2C;
+    }
+    else if (0 != (rtcStatus & RTS_SET_EVENT))
+    {
+        uint8 tmpOrder = orderBuffCmd[0];
+        uint8 tmpWrite = writeBuffCmd[tmpOrder];
+        //TOD0 check that this doesn't pass read index in the command buffer
+        uint8 intState = CyEnterCriticalSection();
+        writeBuffCmd[tmpOrder] = WRAP(writeBuffCmd[tmpOrder] + 11, CMD_BUFFER_SIZE);
+        CyExitCriticalSection(intState);
+        mainTimeDate = RTC_Main_ReadTime();
+        buffCmd[tmpOrder][tmpWrite][0] = 0x45; //Set RTC command
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA2; //8 Address, 10 bytes
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Sec; //Sec
+        buffCmd[tmpOrder][tmpWrite][1] = 0x21; //byte #1
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Min; //Min
+        buffCmd[tmpOrder][tmpWrite][1] = 0x22; //byte #2
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Hour; //Hour
+        buffCmd[tmpOrder][tmpWrite][1] = 0x23; //byte #3
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->DayOfWeek; //DayOfWeek
+        buffCmd[tmpOrder][tmpWrite][1] = 0x60; //byte #4
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->DayOfMonth; //DayOfMonth
+        buffCmd[tmpOrder][tmpWrite][1] = 0x61; //byte #5
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*)(((uint8*) &(mainTimeDate->DayOfYear)) + 1)); //DayOfYear MSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0x62; //byte #6
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*) &(mainTimeDate->DayOfYear)); //DayOfYear LSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0x63; //byte #7
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = mainTimeDate->Month; //DayOfMonth
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA0; //byte #8
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*)(((uint8*) &(mainTimeDate->Year)) + 1)); //DayOfYear MSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA1; //byte #9
+        tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
+        buffCmd[tmpOrder][tmpWrite][0] = *((uint8*) &(mainTimeDate->Year)); //DayOfYear LSB Little endian to Big endian conversion in the precomplier
+        buffCmd[tmpOrder][tmpWrite][1] = 0xA2; //byte #10
+
+        rtcStatus ^= RTS_SET_EVENT;
+    }
+    else if (0 != (rtcStatus & RTS_SET_RPI))
+    {
+    
+        //TODO Rpi commands
+        
+        rtcStatus ^= RTS_SET_RPI;
+    }
+    return 0;
+}
 
 CY_ISR(ISRCheckCmd)
 {
@@ -1028,6 +1320,7 @@ CY_ISR(ISRBaroCap)
 }
 
 
+
 int main(void)
 {
 //	uint8 status;
@@ -1157,8 +1450,30 @@ int main(void)
 //	SendInitCmds();
 	isr_B_StartEx(ISRBaroCap);
     
+    I2C_RTC_Start();
+    //Debug 1 write and read
+//    buffI2CRead = 0;
+//    buffI2CWrite = 2;
+//    uint8 registerToRead = 0x01;
+//    uint8 tmpI2Cdata[8];
+//    memset(tmpI2Cdata, 0, 8);
+//    buffI2C[buffI2CRead].type = I2C_WRITE;
+//    buffI2C[buffI2CRead].slaveAddress = I2C_Address_INA226_5V_Dig;
+//    buffI2C[buffI2CRead].data = &registerToRead;
+//    buffI2C[buffI2CRead].cnt = 1;
+//    buffI2C[buffI2CRead].mode = I2C_RTC_MODE_COMPLETE_XFER;
+//    buffI2C[buffI2CRead + 1].type = I2C_READ;
+//    buffI2C[buffI2CRead + 1].slaveAddress = I2C_Address_INA226_5V_Dig;
+//    buffI2C[buffI2CRead + 1].data = tmpI2Cdata;
+//    buffI2C[buffI2CRead + 1].cnt = 8;
+//    buffI2C[buffI2CRead + 1].mode = I2C_RTC_MODE_COMPLETE_XFER;
+    
+    
+    
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
+    I2C_RTC_MasterClearStatus();
+    rtcStatus = 0x00; //changing flags in this will change startup behavior of RTCs
 	for(;;)
 	{
 		
@@ -1621,7 +1936,8 @@ int main(void)
 		}
 //				if (NewTransmit)
 //		{
-		
+		CheckI2C();
+        CheckRTC();
 		//TODO Framing packets
 			 /* Service USB CDC when device is configured. */
 		if ((0u != USBUART_CD_GetConfiguration()) )//&& (iBuffUsbTx > 0))
