@@ -816,7 +816,7 @@ int8 CheckEventPackets()
             uint8 tmpPacketEvTail = packetEvTail;
             packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE);
             packetEv[tmpPacketEvTail].header = curRead;
-            packetEv[tmpPacketEvTail].EOR = WRAP( curRead + (EV_DUMP_SIZE - 1), PACKET_EVENT_SIZE); // inclusive so -1 to the dump size
+            packetEv[tmpPacketEvTail].EOR = WRAP( curRead + (EV_DUMP_SIZE - 1), EV_BUFFER_SIZE); // inclusive so -1 to the dump size
             
             return 1;
         }
@@ -833,10 +833,22 @@ int8 CheckEventPackets()
                     {
                         
                         EvBufferIndex expBytes = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1; //expected bytes to check packet structure, +1 inclusive
+                        iterRev = WRAP(expBytes, 3); //calc number of bytes off 3 byte alignment and temp store in iterRev (done with EOR checks)
+                        if (0 != iterRev) //check if misaligned search space
+                        {
+//                            iterRev = (3 - iterRev); //calc number of bytes needed to get on 3 byte alignment
+                            if (iterRev < expBytes)//prevent underflow
+                            {
+                                expBytes -= iterRev; //reduce byte expectation to 3 byte alignment
+//                                nBytes -= iterRev; //reduce num byte to 3 byte alignment
+                                curRead = WRAP( curRead + iterRev, EV_BUFFER_SIZE); //move read into 3 byte alignment
+                            }
+                        }
                         if (EV_MAX_SIZE < expBytes)
                         {
                             curRead = WRAP( (EV_BUFFER_SIZE - EV_MAX_SIZE) + 1 + curEOR, EV_BUFFER_SIZE);//max search space for header, + 1 inclusive
                             expBytes = EV_MAX_SIZE; // now expecting the max size packet, will keep reducing by 3
+//                            nBytes = EV_MAX_SIZE; // now expecting the max size packet, will keep reducing by 3
                         }
                         while (EV_MIN_SIZE <= expBytes) //min packet size is smallest search space
                         {
@@ -844,11 +856,11 @@ int8 CheckEventPackets()
                             switch (buffEv[curRead])
                             {
                                 case EVVAR_HEAD:
-                                    calcBytes = buffEv[ WRAP3INC(curRead, EV_BUFFER_SIZE)];// valid data bytes in packet, might not be multiple of 3. doe
+                                    calcBytes = buffEv[ WRAP3INC(curRead, EV_BUFFER_SIZE)] + 9u;// valid data bytes in packet, might not be multiple of 3. Add for header, EOR, & len
                                 case EVFIX_HEAD: //EVVAR_HEAD continues here
-                                    if (((expBytes - 8u) <= calcBytes) && ((expBytes - 6u) >= calcBytes)) //3 byte range for the listed len compared to actua; 
+                                    if (((expBytes - 2u) <= calcBytes) && ((expBytes) >= calcBytes)) //3 byte range for the listed len compared to actual
                                     {
-                                        EvBufferIndex iterFwd = WRAP( curRead, EV_BUFFER_SIZE); //iterator to check next bytes
+                                        EvBufferIndex iterFwd = WRAPINC( curRead, EV_BUFFER_SIZE); //iterator to check next bytes
                                         if(frame00FF[0] == buffEv[iterFwd])
                                         {
                                             if(frame00FF[1] == buffEv[WRAPINC( iterFwd, EV_BUFFER_SIZE)]) //header is in curRead position, packet location and bookend checked
@@ -860,7 +872,7 @@ int8 CheckEventPackets()
                                                     uint8 tmpPacketEvTail = packetEvTail;
                                                     packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE); //dumping the unchecked data
                                                     packetEv[tmpPacketEvTail].header = buffEvRead; //start with beginning of active bytes
-                                                    packetEv[tmpPacketEvTail].EOR = WRAPINC( curRead , PACKET_EVENT_SIZE); // 1 byte before ends dump
+                                                    packetEv[tmpPacketEvTail].EOR = WRAPDEC( curRead , EV_BUFFER_SIZE); // 1 byte before ends dump
                                                     
                                                     numPkts++;
                                                 }
@@ -883,12 +895,14 @@ int8 CheckEventPackets()
                             expBytes -= 3; //shrink search space by 3
                             curRead = WRAP3INC(curRead, EV_BUFFER_SIZE); //move forward along 3 byte alignment
                         }
+                        return 0; // give up after first potential EOR found to limit loop time (stay order n). will dump this out eventually & will processed by a PC (more CPU & time)
                     }
                 }
             }
            
             nBytes--; //shrink search space
             curEOR = WRAPDEC(curEOR, EV_BUFFER_SIZE); //Move back to check next byte
+//            nBytes = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1; //shrink search space to new endpoints, +1 inclusive
             
         }
         
