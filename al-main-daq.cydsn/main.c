@@ -16,6 +16,7 @@
  * V1.2 Changed Init commands for T2 testing with python script
  * V1.3 Added RTC internal initilization from I2C RTC
  * V1.4 Added RTC write default date to I2C RTC
+ * V1.6 Build large buffer for output frames
  *
  * ========================================
 */
@@ -28,15 +29,16 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 4 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 6 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
 #define WRAPINC(a,b) ((a + 1) % (b))
 #define WRAP3INC(a,b) ((a + 3) % (b))
+#define WRAPDEC(a,b) ((a + ((b) - 1)) % (b))
 #define WRAP(a,b) ((a) % (b)) //Macro to bring new calculated index a into the bounds of a circular buffer of size b
 #define ISELEMENTDONE(a,b,c) ((b <= c) ? ((a < b) || (a >= c)) : ((a < b) && (a >= c)) )//used to determin if element in circular buffer is done 
-
+#define ACTIVELEN(a,b,c) ((((c) - (a)) + (b)) % (c)) //Macro to calculate active length in a circular buffer. Exclusive, need to add 1 to make inclusive
 // From LROA103.ASM
 //;The format for the serial command is:
 //; S1234<sp>xyWS1234<sp>xyWS1234<sp>xyW<cr><lf>
@@ -62,9 +64,9 @@
 /* Project Defines */
 #define FALSE  0
 #define TRUE   1
-//#define SPI_BUFFER_SIZE  (512u)
-#define SPI_BUFFER_SIZE  (1024u)
-#define EV_BUFFER_SIZE  (512u)
+#define SPI_BUFFER_SIZE  (512u)
+//#define SPI_BUFFER_SIZE  (1024u)
+#define EV_BUFFER_SIZE  (1024u)
 typedef uint16 SPIBufferIndex; //type of variable indexing the SPI buffer. should be uint8 or uint16 based on size
 typedef uint16 EvBufferIndex; //type of variable indexing the Event buffer. should be uint16
 //uint8 cmdBuff[CMDBUFFSIZE];
@@ -102,6 +104,8 @@ const void (* tabSPISel[NUM_SPI_DEV])(uint8) = {
 #define EOR_HEAD	(0xFFu)
 #define DUMP_HEAD	(0xF5u)
 #define ENDDUMP_HEAD	(0xF7u)
+#define EVFIX_HEAD	(0xDBu) //Event PSOC fixed length packet
+#define EVVAR_HEAD	(0xDCu) //Event PSOC variable length packet
 const uint8 tabSPIHead[NUM_SPI_DEV] = {POW_HEAD}; //only power boards left , PHA_HEAD, CTR1_HEAD, TKR_HEAD, CTR3_HEAD};
 const uint8 frame00FF[2] = {0x00u, 0xFFu};
 uint8 buffSPI[NUM_SPI_DEV][SPI_BUFFER_SIZE];
@@ -109,9 +113,10 @@ SPIBufferIndex buffSPIRead[NUM_SPI_DEV];
 SPIBufferIndex buffSPIWrite[NUM_SPI_DEV];
 SPIBufferIndex buffSPICurHead[NUM_SPI_DEV]; //Header of the current packet
 SPIBufferIndex buffSPICompleteHead[NUM_SPI_DEV]; //Header of the latest complete packet
-uint8 buffEv[SPI_BUFFER_SIZE];
+uint8 buffEv[EV_BUFFER_SIZE];
 EvBufferIndex buffEvRead;
 EvBufferIndex buffEvWrite;
+EvBufferIndex buffEvWriteLast = 0u;
 
 enum readStatus {CHECKDATA, READOUTDATA, EORFOUND, EORERROR};
 enum commandStatus {WAIT_DLE, CHECK_ID, CHECK_LEN, READ_CMD, CHECK_ETX_CMD, CHECK_ETX_REQ};
@@ -127,13 +132,23 @@ uint8 iCurCmd = 0u;
 //#define MIN_DRDY_CYCLES 4 //8 //might need  Fster clock since the master clock generates noise the noise on this line
  
 const uint8 frameSync[2] = {0x55u, 0xABu};
-uint32 frameCnt = 0u;
-#define DATA_BYTES_FRAME 27
+uint32 frameCnt = 0u; //TODO Comment this out when ISR is removed
+//#define DATA_BYTES_FRAME 27
+
+typedef struct PacketEvent {
+	EvBufferIndex header;
+	EvBufferIndex EOR; //last byte (inclusive) in the read should be LSB FF of FF00FF  
+} PacketEvent;
+
+#define PACKET_EVENT_SIZE	 (16u)
+PacketEvent packetEv[PACKET_EVENT_SIZE];
+uint8 packetEvHead = 0u;
+uint8 packetEvTail = 0u;
 
 typedef struct PacketLocation {
 	SPIBufferIndex index;
 	SPIBufferIndex header;
-	SPIBufferIndex EOR;
+	EvBufferIndex EOR; //last byte (inclusive) in the read should be LSB FF of FF00FF  
 } PacketLocation;
 
 #define PACKET_FIFO_SIZE	 (16u * NUM_SPI_DEV)
@@ -147,10 +162,25 @@ uint8 buffUsbTxDebug[USBUART_BUFFER_SIZE];
 uint8 iBuffUsbTxDebug = 0;
 
 #define FRAME_DATA_BYTES	(27u)
-#define FRAME_BUFFER_SIZE	(64u)
-uint8 buffFrameData[FRAME_BUFFER_SIZE][FRAME_DATA_BYTES];
-uint8 buffFrameDataRead = 0;
-uint8 buffFrameDataWrite = 0;
+#define FRAME_BUFFER_BLOCKS	(1u) //Number of blocks in the buffer, should me changed based on availiaable SRAM. 256 frames takes about 14%
+#define FRAME_BUFFER_BLOCK_SIZE	(256u) //choosen so LSB of seq can be preset in buffer
+#define FRAME_BUFFER_SIZE	(FRAME_BUFFER_BLOCKS * FRAME_BUFFER_BLOCK_SIZE) //Calculate size, do not change 
+typedef struct FrameOutput {
+	uint8 seqH;
+	uint8 seqM;
+	uint8 seqL;
+	uint8 sync[4];
+	uint8 data[FRAME_DATA_BYTES];
+} FrameOutput;
+typedef uint16 FmBufferIndex; //type of variable indexing the Frame buffer. should be uint16
+
+FrameOutput buffFrameData[FRAME_BUFFER_SIZE];
+//uint8 buffFrameData[FRAME_BUFFER_SIZE][FRAME_DATA_BYTES];
+FmBufferIndex buffFrameDataRead = 0;
+FmBufferIndex buffFrameDataReadUSB = 0;
+FmBufferIndex buffFrameDataWrite = 0;
+
+uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seqL is set by init
 
 
 #define COUNTER_PACKET_BYTES	(45u)
@@ -211,10 +241,10 @@ volatile uint8 continueRead = FALSE;
 //AESOPLite Initialization Commands
 #define NUMBER_INIT_CMDS	(32 + 39)
 uint8 initCmd[NUMBER_INIT_CMDS][2] = {
-	{0xC3, 0x35}, //T1 1671.6 High Voltage
+	{0xAF, 0x35}, //T1 1500.2V High Voltage
 	{0xDD, 0x36}, //T2 1860.7
 	{0xCA, 0x37}, //T3 1704.7
-	{0xC7, 0xB5}, //T4 1670.8
+	{0xBF, 0xB5}, //T4 1603.7
 	{0xCB, 0x74}, //G  1706.8
 	{0x00, 0x39}, //Dual PHA card 0, All PHA Discriminators set to 7.0
 	{0x07, 0x3A}, //T1
@@ -752,7 +782,125 @@ uint8 CheckI2C()
     return 0;
 }
 
+FmBufferIndex InitFrameBuffer()
+{
+    FmBufferIndex initFB = 0;
+    while (FRAME_BUFFER_SIZE > initFB)
+    {
+        buffFrameData[initFB].seqL = (uint8)(initFB & 0xFF); //seqL is the LSB of the index of the Frame Buffer and doesn't need to change
+        memcpy(buffFrameData[initFB].sync, frameSync, 2);
+        memcpy((buffFrameData[initFB].sync + 2), frameSync, 2);
+        initFB++;
+        
+    }
+    return initFB;
+}
 
+#define EV_DUMP_SIZE (EV_BUFFER_SIZE - WRAP(EV_BUFFER_SIZE, FRAME_DATA_BYTES))
+#define EV_MIN_SIZE (9u)
+#define EV_MAX_SIZE (255u + 9u) //max 1 byte len + addtional bytes
+int8 CheckEventPackets()
+{
+    if ((buffEvWriteLast != buffEvWrite) && (buffEvRead != buffEvWrite) && ((WRAPINC(packetEvTail, PACKET_EVENT_SIZE) != packetEvHead))) //check for new active data in event buffer, and no overflow
+    {
+        EvBufferIndex curRead = buffEvRead;
+        buffEvWriteLast = buffEvWrite;
+        if (packetEvHead != packetEvTail) //check for queued packets to decide where to start
+        {
+            curRead = WRAPINC( packetEv[ WRAPDEC(packetEvTail, PACKET_EVENT_SIZE) ].EOR , EV_BUFFER_SIZE); //move active past last packet found
+        }
+//        EvBufferIndex curEOR = WRAPDEC(buffEvWrite, EV_BUFFER_SIZE);
+        EvBufferIndex nBytes = ACTIVELEN(curRead, buffEvWrite, EV_BUFFER_SIZE);
+        if (EV_DUMP_SIZE <= nBytes)
+        {
+            uint8 tmpPacketEvTail = packetEvTail;
+            packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE);
+            packetEv[tmpPacketEvTail].header = curRead;
+            packetEv[tmpPacketEvTail].EOR = WRAP( curRead + (EV_DUMP_SIZE - 1), PACKET_EVENT_SIZE); // inclusive so -1 to the dump size
+            
+            return 1;
+        }
+        EvBufferIndex curEOR = WRAPDEC(buffEvWrite, EV_BUFFER_SIZE);// make inclusive
+        while (EV_MIN_SIZE <= nBytes) //min packet size is smallest search space
+        {
+            if(frame00FF[1] == buffEv[curEOR])
+            {
+                EvBufferIndex iterRev = WRAPDEC(curEOR, EV_BUFFER_SIZE); //iterator to check prev bytes
+                if(frame00FF[0] == buffEv[iterRev])
+                {
+                    
+                    if(EOR_HEAD == buffEv[ WRAPDEC(iterRev, EV_BUFFER_SIZE)]) //last 3 bytes should be EOR 0xFF00FF
+                    {
+                        
+                        EvBufferIndex expBytes = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1; //expected bytes to check packet structure, +1 inclusive
+                        if (EV_MAX_SIZE < expBytes)
+                        {
+                            curRead = WRAP( (EV_BUFFER_SIZE - EV_MAX_SIZE) + 1 + curEOR, EV_BUFFER_SIZE);//max search space for header, + 1 inclusive
+                            expBytes = EV_MAX_SIZE; // now expecting the max size packet, will keep reducing by 3
+                        }
+                        while (EV_MIN_SIZE <= expBytes) //min packet size is smallest search space
+                        {
+                            EvBufferIndex calcBytes = EV_MIN_SIZE; //data bytes in fixed packet, excludes header & EOR
+                            switch (buffEv[curRead])
+                            {
+                                case EVVAR_HEAD:
+                                    calcBytes = buffEv[ WRAP3INC(curRead, EV_BUFFER_SIZE)];// valid data bytes in packet, might not be multiple of 3. doe
+                                case EVFIX_HEAD: //EVVAR_HEAD continues here
+                                    if (((expBytes - 8u) <= calcBytes) && ((expBytes - 6u) >= calcBytes)) //3 byte range for the listed len compared to actua; 
+                                    {
+                                        EvBufferIndex iterFwd = WRAP( curRead, EV_BUFFER_SIZE); //iterator to check next bytes
+                                        if(frame00FF[0] == buffEv[iterFwd])
+                                        {
+                                            if(frame00FF[1] == buffEv[WRAPINC( iterFwd, EV_BUFFER_SIZE)]) //header is in curRead position, packet location and bookend checked
+                                            {
+                                                uint8  numPkts = 0;
+                                                uint8 intState = CyEnterCriticalSection(); //TODO consider the mutex
+                                                if (curRead != buffEvRead)// check if data that failed checks precededs the header
+                                                {
+                                                    uint8 tmpPacketEvTail = packetEvTail;
+                                                    packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE); //dumping the unchecked data
+                                                    packetEv[tmpPacketEvTail].header = buffEvRead; //start with beginning of active bytes
+                                                    packetEv[tmpPacketEvTail].EOR = WRAPINC( curRead , PACKET_EVENT_SIZE); // 1 byte before ends dump
+                                                    
+                                                    numPkts++;
+                                                }
+                                                CyExitCriticalSection(intState); //TODO consider the mutex
+                                                if ((WRAPINC(packetEvTail, PACKET_EVENT_SIZE) != packetEvHead)) //check if space for another packet
+                                                {
+                                                    uint8 tmpPacketEvTail = packetEvTail;
+                                                    packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE); //dumping the unchecked data
+                                                    packetEv[tmpPacketEvTail].header = curRead; //start with found header
+                                                    packetEv[tmpPacketEvTail].EOR = curEOR; // found EOR
+                                                    
+                                                    numPkts++;
+                                                }
+                                                return numPkts;
+                                            }
+                                        }
+                                    }
+                                    break;
+                            }
+                            expBytes -= 3; //shrink search space by 3
+                            curRead = WRAP3INC(curRead, EV_BUFFER_SIZE); //move forward along 3 byte alignment
+                        }
+                    }
+                }
+            }
+           
+            nBytes--; //shrink search space
+            curEOR = WRAPDEC(curEOR, EV_BUFFER_SIZE); //Move back to check next byte
+            
+        }
+        
+        
+    }
+    return 0;
+}
+
+int8 CheckFrameBuffer()
+{
+    return 0;
+}
 
 uint8 CheckRTC()
 {
@@ -1111,7 +1259,7 @@ CY_ISR(ISRHRTx)
 			ibuffFrame++;
 		}
 		uint8 nullFrame = FALSE;
-		EvBufferIndex nDataBytesLeft = DATA_BYTES_FRAME;
+		EvBufferIndex nDataBytesLeft = FRAME_DATA_BYTES;
 //		memcpy( (buffFrame + ibuffFrame), &(frameCnt), 3);
 //		ibuffFrame += 3;
 		frameCnt++;
@@ -1124,15 +1272,16 @@ CY_ISR(ISRHRTx)
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = '+';
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = packetFIFOTail;
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = '}';
-        if (DATA_BYTES_FRAME <= WRAP(EV_BUFFER_SIZE - buffEvRead + buffEvWrite, EV_BUFFER_SIZE)) //Full frame of event data
+        if (FALSE) //DEBUG let event buffer fill
+//        if (FRAME_DATA_BYTES <= WRAP(EV_BUFFER_SIZE - buffEvRead + buffEvWrite, EV_BUFFER_SIZE)) //Full frame of event data
         {
             EvBufferIndex nBytes;
             EvBufferIndex curRead = buffEvRead;
-			EvBufferIndex curEOR = WRAP(curRead + (DATA_BYTES_FRAME - 1), EV_BUFFER_SIZE);
+			EvBufferIndex curEOR = WRAP(curRead + (FRAME_DATA_BYTES - 1), EV_BUFFER_SIZE);
 			
 			if (curEOR > curRead)
 			{
-				nBytes = DATA_BYTES_FRAME;
+				nBytes = FRAME_DATA_BYTES;
 			}
 			else
 			{
@@ -1468,7 +1617,7 @@ int main(void)
 //    buffI2C[buffI2CRead + 1].cnt = 8;
 //    buffI2C[buffI2CRead + 1].mode = I2C_RTC_MODE_COMPLETE_XFER;
     
-    
+    InitFrameBuffer(); //intialize sync and seq num
     
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
@@ -1479,6 +1628,7 @@ int main(void)
 		
 		/* Place your application code here. */
         int tempRes = CheckCmdBuffers();
+        tempRes = CheckEventPackets(); //TODO Move order of this call
 		//if (SPIM_BP_GetRxBufferSize > 0)
 		//{
 //			SPIM_BP_ReadRxData();
