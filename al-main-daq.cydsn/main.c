@@ -1286,8 +1286,8 @@ CY_ISR(ISRHRTx)
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = '+';
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = packetFIFOTail;
 //		buffUsbTxDebug[iBuffUsbTxDebug++] = '}';
-        if (FALSE) //DEBUG let event buffer fill
-//        if (FRAME_DATA_BYTES <= WRAP(EV_BUFFER_SIZE - buffEvRead + buffEvWrite, EV_BUFFER_SIZE)) //Full frame of event data
+//        if (FALSE) //DEBUG let event buffer fill
+        if (FRAME_DATA_BYTES <= WRAP(EV_BUFFER_SIZE - buffEvRead + buffEvWrite, EV_BUFFER_SIZE)) //Full frame of event data
         {
             EvBufferIndex nBytes;
             EvBufferIndex curRead = buffEvRead;
