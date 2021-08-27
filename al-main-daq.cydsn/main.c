@@ -809,6 +809,7 @@ int8 CheckEventPackets()
         {
             curRead = WRAPINC( packetEv[ WRAPDEC(packetEvTail, PACKET_EVENT_SIZE) ].EOR , EV_BUFFER_SIZE); //move active past last packet found
         }
+        EvBufferIndex startRead = curRead; //store the largest search bound for comparison later 
 //        EvBufferIndex curEOR = WRAPDEC(buffEvWrite, EV_BUFFER_SIZE);
         EvBufferIndex nBytes = ACTIVELEN(curRead, buffEvWrite, EV_BUFFER_SIZE);
         if (EV_DUMP_SIZE <= nBytes)
@@ -866,24 +867,22 @@ int8 CheckEventPackets()
                                             if(frame00FF[1] == buffEv[WRAPINC( iterFwd, EV_BUFFER_SIZE)]) //header is in curRead position, packet location and bookend checked
                                             {
                                                 uint8  numPkts = 0;
-                                                uint8 intState = CyEnterCriticalSection(); //TODO consider the mutex
-                                                if (curRead != buffEvRead)// check if data that failed checks precededs the header
+//                                                uint8 intState = CyEnterCriticalSection(); //TODO consider the mutex
+                                                if (curRead != startRead)// check if data that failed checks precededs the header
                                                 {
                                                     uint8 tmpPacketEvTail = packetEvTail;
                                                     packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE); //dumping the unchecked data
-                                                    packetEv[tmpPacketEvTail].header = buffEvRead; //start with beginning of active bytes
-                                                    packetEv[tmpPacketEvTail].EOR = WRAPDEC( curRead , EV_BUFFER_SIZE); // 1 byte before ends dump
-                                                    
+                                                    packetEv[tmpPacketEvTail].header = startRead; //start with beginning of active bytes
+                                                    packetEv[tmpPacketEvTail].EOR = WRAPDEC( curRead , EV_BUFFER_SIZE); // 1 byte before Read ends dump
                                                     numPkts++;
                                                 }
-                                                CyExitCriticalSection(intState); //TODO consider the mutex
+//                                                CyExitCriticalSection(intState); //TODO consider the mutex
                                                 if ((WRAPINC(packetEvTail, PACKET_EVENT_SIZE) != packetEvHead)) //check if space for another packet
                                                 {
                                                     uint8 tmpPacketEvTail = packetEvTail;
                                                     packetEvTail = WRAPINC(packetEvTail, PACKET_EVENT_SIZE); //dumping the unchecked data
                                                     packetEv[tmpPacketEvTail].header = curRead; //start with found header
                                                     packetEv[tmpPacketEvTail].EOR = curEOR; // found EOR
-                                                    
                                                     numPkts++;
                                                 }
                                                 return numPkts;
@@ -911,8 +910,119 @@ int8 CheckEventPackets()
     return 0;
 }
 
+uint32 cntFramesDropped = 0; // number of frames overwritten before being sent via RS232
+uint32 cntFramesDroppedUSB = 0; // number of frames overwritten before being sent via USB
+
 int8 CheckFrameBuffer()
 {
+	if (UART_HR_Data_GetTxBufferSize() <= 0)
+    {
+        if (buffFrameDataWrite != buffFrameDataRead)
+        {
+            UART_HR_Data_PutArray((uint8*)&(buffFrameData[ buffFrameDataRead ]) , sizeof(FrameOutput));
+            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_BLOCKS);
+            
+        }
+    }
+    
+    if ((0u != USBUART_CD_GetConfiguration()) )
+    {
+        if (buffFrameDataWrite != buffFrameDataReadUSB)
+        {
+
+            if (USBUART_CD_CDCIsReady())
+            {
+                USBUART_CD_PutData((uint8*)&(buffFrameData[ buffFrameDataReadUSB ]), sizeof(FrameOutput));
+//                memcpy( (buffUsbTx + iBuffUsbTx), (uint8*)&(buffFrameData[ buffFrameDataReadUSB ]), sizeof(FrameOutput));
+//    			iBuffUsbTx += sizeof(FrameOutput);
+                buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_BLOCKS);
+            }
+        }
+    }
+    if (packetEvHead != packetEvTail) //check if queued Event packets, Top Priority will starve others if new one every loop
+    {
+        
+        EvBufferIndex curRead = packetEv[ packetEvHead ].header;
+		EvBufferIndex curEOR = packetEv[ packetEvHead ].EOR;
+        EvBufferIndex nDataBytesLeft = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1;
+        EvBufferIndex nBytes = 0;
+        uint8 tmpWrite  = 0;
+		packetEvHead = WRAPINC(packetEvHead, PACKET_EVENT_SIZE);
+        buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+        buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+        seqFrame2HB++;
+        while(nDataBytesLeft > 0)
+		{
+			if (curEOR < curRead)
+			{
+				nBytes = MIN(EV_BUFFER_SIZE - curRead, nDataBytesLeft);
+			}
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+            
+			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffEv + curRead), nBytes);
+
+			nDataBytesLeft -= nBytes;
+			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
+			if (curRead == curEOR)
+			{
+                packetEvHead = WRAPINC(packetEvHead, PACKET_EVENT_SIZE);
+                //Could add next packet to the frame but not preferred at the moment
+
+			}
+			if (curRead >= (EV_BUFFER_SIZE - 1))
+			{
+				curRead = buffEvRead = 0;
+			}
+			else
+			{
+                curRead = WRAPINC(curRead, EV_BUFFER_SIZE); //last increment, handling the wrap
+				buffEvRead = curRead;
+			}
+            tmpWrite += nBytes;
+            if (FRAME_DATA_BYTES <= tmpWrite)
+            {
+                buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_BLOCKS);
+                if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+                {
+                    buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_BLOCKS);
+                    cntFramesDropped++;
+                }
+                if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+                {
+                    buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_BLOCKS);
+                    cntFramesDroppedUSB++;
+                }
+                buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+                buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+                seqFrame2HB++;
+            }
+		}
+		
+		if (FRAME_DATA_BYTES > tmpWrite)
+		{
+            uint8 bytesAlign = WRAP(tmpWrite, 3); //calc number of bytes off 3 byte alignment and temp store in iterRev (done with EOR checks)
+            if (0 != bytesAlign) //check if misaligned search space
+            {
+                buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                if (1 == bytesAlign)// needs 2nd padding byte
+                {
+                    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                }
+            }
+            while (FRAME_DATA_BYTES > tmpWrite)
+            {
+			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
+                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                tmpWrite += 2;
+			}
+		}
+    }
+    else if (packetFIFOHead != packetFIFOTail) //check if queued Backplane packets
+    {
+        //
+    }
+    
+    
     return 0;
 }
 
