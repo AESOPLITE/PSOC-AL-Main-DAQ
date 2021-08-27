@@ -1718,7 +1718,7 @@ int main(void)
 //	for(uint8 x=0;x<34;x++) UART_HR_Data_PutChar(x);
 	CyGlobalIntEnable; /* Enable global interrupts. */
 //	ISRHRTx();
-	isr_HR_StartEx(ISRHRTx);
+//	isr_HR_StartEx(ISRHRTx);
 	
 //	SendInitCmds();
 	isr_B_StartEx(ISRBaroCap);
