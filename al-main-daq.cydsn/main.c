@@ -486,12 +486,12 @@ int SendCmdString (uint8 * in)
 	UART_Cmd_PutChar(CR);
 	UART_Cmd_PutChar(LF);
     //Debug
-    if (USBUART_CD_CDCIsReady())
-    {
-        *(in+4) = LF;
-        USBUART_CD_PutData(in, COMMAND_CHARS +1);
-
-    }
+//    if (USBUART_CD_CDCIsReady())
+//    {
+//        *(in+4) = LF;
+//        USBUART_CD_PutData(in, COMMAND_CHARS +1);
+//
+//    }
 	return 0;
 }
 
@@ -920,7 +920,7 @@ int8 CheckFrameBuffer()
         if (buffFrameDataWrite != buffFrameDataRead)
         {
             UART_HR_Data_PutArray((uint8*)&(buffFrameData[ buffFrameDataRead ]) , sizeof(FrameOutput));
-            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_BLOCKS);
+            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
             
         }
     }
@@ -935,7 +935,7 @@ int8 CheckFrameBuffer()
                 USBUART_CD_PutData((uint8*)&(buffFrameData[ buffFrameDataReadUSB ]), sizeof(FrameOutput));
 //                memcpy( (buffUsbTx + iBuffUsbTx), (uint8*)&(buffFrameData[ buffFrameDataReadUSB ]), sizeof(FrameOutput));
 //    			iBuffUsbTx += sizeof(FrameOutput);
-                buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_BLOCKS);
+                buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
             }
         }
     }
@@ -950,7 +950,7 @@ int8 CheckFrameBuffer()
 		packetEvHead = WRAPINC(packetEvHead, PACKET_EVENT_SIZE);
         buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
         buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
-        seqFrame2HB++;
+//        seqFrame2HB++;
         while(nDataBytesLeft > 0)
 		{
 			if (curEOR < curRead)
@@ -963,12 +963,12 @@ int8 CheckFrameBuffer()
 
 			nDataBytesLeft -= nBytes;
 			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
-			if (curRead == curEOR)
-			{
-                packetEvHead = WRAPINC(packetEvHead, PACKET_EVENT_SIZE);
-                //Could add next packet to the frame but not preferred at the moment
-
-			}
+//			if (curRead == curEOR)
+//			{
+//                packetEvHead = WRAPINC(packetEvHead, PACKET_EVENT_SIZE);
+//                //Could add next packet to the frame but not preferred at the moment
+//
+//			}
 			if (curRead >= (EV_BUFFER_SIZE - 1))
 			{
 				curRead = buffEvRead = 0;
@@ -981,20 +981,25 @@ int8 CheckFrameBuffer()
             tmpWrite += nBytes;
             if (FRAME_DATA_BYTES <= tmpWrite)
             {
-                buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_BLOCKS);
+                if((FRAME_BUFFER_BLOCK_SIZE - 1) == buffFrameData[ buffFrameDataWrite ].seqL )
+                {
+                    seqFrame2HB++;
+                }
+                buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
                 if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
                 {
-                    buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_BLOCKS);
+                    buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
                     cntFramesDropped++;
                 }
                 if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
                 {
-                    buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_BLOCKS);
+                    buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
                     cntFramesDroppedUSB++;
                 }
                 buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
                 buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
-                seqFrame2HB++;
+               
+                tmpWrite = 0;
             }
 		}
 		
@@ -1016,6 +1021,17 @@ int8 CheckFrameBuffer()
                 tmpWrite += 2;
 			}
 		}
+        buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+        if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+        {
+            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+            cntFramesDropped++;
+        }
+        if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+        {
+            buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+            cntFramesDroppedUSB++;
+        }
     }
     else if (packetFIFOHead != packetFIFOTail) //check if queued Backplane packets
     {
@@ -1753,6 +1769,7 @@ int main(void)
 		/* Place your application code here. */
         int tempRes = CheckCmdBuffers();
         tempRes = CheckEventPackets(); //TODO Move order of this call
+        tempRes = CheckFrameBuffer(); //TODO Move order of this call
 		//if (SPIM_BP_GetRxBufferSize > 0)
 		//{
 //			SPIM_BP_ReadRxData();
