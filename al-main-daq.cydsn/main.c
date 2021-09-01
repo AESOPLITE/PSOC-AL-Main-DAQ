@@ -17,6 +17,7 @@
  * V1.3 Added RTC internal initilization from I2C RTC
  * V1.4 Added RTC write default date to I2C RTC
  * V1.6 Build large buffer for output frames
+ * V1.7 Frame buffer now outputs event and SPI without filler frames 
  *
  * ========================================
 */
@@ -29,7 +30,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 6 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 7 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -941,7 +942,6 @@ int8 CheckFrameBuffer()
     }
     if (packetEvHead != packetEvTail) //check if queued Event packets, Top Priority will starve others if new one every loop
     {
-        
         EvBufferIndex curRead = packetEv[ packetEvHead ].header;
 		EvBufferIndex curEOR = packetEv[ packetEvHead ].EOR;
         EvBufferIndex nDataBytesLeft = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1;
@@ -1035,7 +1035,97 @@ int8 CheckFrameBuffer()
     }
     else if (packetFIFOHead != packetFIFOTail) //check if queued Backplane packets
     {
-        //
+		uint8 curSPIDev = packetFIFO[packetFIFOHead].index;
+        SPIBufferIndex curRead = packetFIFO[ packetFIFOHead ].header;
+		SPIBufferIndex curEOR = packetFIFO[ packetFIFOHead ].EOR;
+        SPIBufferIndex nDataBytesLeft = ACTIVELEN(curRead, curEOR, SPI_BUFFER_SIZE) + 1;
+        SPIBufferIndex nBytes = 0;
+        uint8 tmpWrite  = 0;
+		packetFIFOHead = WRAPINC(packetFIFOHead, PACKET_FIFO_SIZE);
+        buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+        buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+//        seqFrame2HB++;
+        while(nDataBytesLeft > 0)
+		{
+			if (curEOR < curRead)
+			{
+				nBytes = MIN(SPI_BUFFER_SIZE - curRead, nDataBytesLeft);
+			}
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+            
+			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffSPI[curSPIDev]  + curRead), nBytes);
+
+			nDataBytesLeft -= nBytes;
+			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
+//			if (curRead == curEOR)
+//			{
+//                packetEvHead = WRAPINC(packetEvHead, PACKET_EVENT_SIZE);
+//                //Could add next packet to the frame but not preferred at the moment
+//
+//			}
+			if (curRead >= (SPI_BUFFER_SIZE - 1))
+			{
+				curRead = buffSPIRead[curSPIDev] = 0;
+			}
+			else
+			{
+                curRead = WRAPINC(curRead, SPI_BUFFER_SIZE); //last increment, handling the wrap
+				buffSPIRead[curSPIDev] = curRead;
+			}
+            tmpWrite += nBytes;
+            if (FRAME_DATA_BYTES <= tmpWrite)
+            {
+                if((FRAME_BUFFER_BLOCK_SIZE - 1) == buffFrameData[ buffFrameDataWrite ].seqL )
+                {
+                    seqFrame2HB++;
+                }
+                buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+                if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+                {
+                    buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+                    cntFramesDropped++;
+                }
+                if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+                {
+                    buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+                    cntFramesDroppedUSB++;
+                }
+                buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+                buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+               
+                tmpWrite = 0;
+            }
+		}
+		
+		if (FRAME_DATA_BYTES > tmpWrite)
+		{
+            uint8 bytesAlign = WRAP(tmpWrite, 3); //calc number of bytes off 3 byte alignment and temp store in iterRev (done with EOR checks)
+            if (0 != bytesAlign) //check if misaligned search space
+            {
+                buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                if (1 == bytesAlign)// needs 2nd padding byte
+                {
+                    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                }
+            }
+            while (FRAME_DATA_BYTES > tmpWrite)
+            {
+			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
+                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                tmpWrite += 2;
+			}
+		}
+        buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+        if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+        {
+            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+            cntFramesDropped++;
+        }
+        if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+        {
+            buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+            cntFramesDroppedUSB++;
+        }
     }
     
     
@@ -1448,7 +1538,7 @@ CY_ISR(ISRHRTx)
 		}
 		else
 		{
-			uint8 curSPIDev = packetFIFO[packetFIFOHead].index;;
+			uint8 curSPIDev = packetFIFO[packetFIFOHead].index;
 			SPIBufferIndex nBytes;
 			SPIBufferIndex curEOR= packetFIFO[packetFIFOHead].EOR;
 			SPIBufferIndex curRead = buffSPIRead[curSPIDev];
