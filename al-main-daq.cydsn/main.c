@@ -18,6 +18,7 @@
  * V1.4 Added RTC write default date to I2C RTC
  * V1.6 Build large buffer for output frames
  * V1.7 Frame buffer now outputs event and SPI without filler frames 
+ * V1.8 Adding initial houskeeping output 
  *
  * ========================================
 */
@@ -30,7 +31,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 7 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 8 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -183,8 +184,23 @@ FmBufferIndex buffFrameDataWrite = 0;
 
 uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seqL is set by init
 
+#define HK_BUFFER_PACKETS	(2u) //Number of houskeeping packets to buffer, min 2 
+#define HK_PAD_SIZE	1 //number of padding bytes need for 
+typedef struct HousekeepingPeriodic {
+	uint8 header[3];
+	uint8 version[2];
+	uint8 padding[HK_PAD_SIZE];
+	uint8 EOR[3];
+} HousekeepingPeriodic;
+typedef uint16 FmBufferIndex; //type of variable indexing the Frame buffer. should be uint16
 
-#define COUNTER_PACKET_BYTES	(45u)
+HousekeepingPeriodic buffHK[HK_BUFFER_PACKETS];
+uint8 buffHKRead = 0;
+uint8 buffHKWrite = 0;
+
+#define HK_HEAD	(0xF8u) //usign counter1 for main PSOC hk right now
+
+//#define COUNTER_PACKET_BYTES	(45u)
 
 /* Defines for DMA_LR_Cmd_1 */
 #define DMA_LR_Cmd_1_BYTES_PER_BURST 1
@@ -797,6 +813,23 @@ FmBufferIndex InitFrameBuffer()
     return initFB;
 }
 
+FmBufferIndex InitHKBuffer()
+{
+    uint8 initHK = 0;
+    while (HK_BUFFER_PACKETS > initHK)
+    {
+        buffHK[initHK].header[0] = HK_HEAD;
+        memcpy(buffHK[initHK].header + 1, frame00FF, 2);
+        buffHK[initHK].version[0] = MAJOR_VERSION;
+        buffHK[initHK].version[1] = MINOR_VERSION;
+        buffHK[initHK].EOR[0] = EOR_HEAD;
+        memcpy(buffHK[initHK].EOR + 1, frame00FF, 2);
+        initHK++;
+        
+    }
+    return initHK;
+}
+
 #define EV_DUMP_SIZE (EV_BUFFER_SIZE - WRAP(EV_BUFFER_SIZE, FRAME_DATA_BYTES))
 #define EV_MIN_SIZE (9u)
 #define EV_MAX_SIZE (255u + 9u) //max 1 byte len + addtional bytes
@@ -1126,6 +1159,81 @@ int8 CheckFrameBuffer()
             buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
             cntFramesDroppedUSB++;
         }
+    }
+    else if (buffHKRead != buffHKWrite) //check if queued Housekeeping packets
+    {
+        uint8 curRead = 0;
+        uint8 nDataBytesLeft = sizeof(HousekeepingPeriodic);
+        uint8 nBytes = 0;
+        uint8 tmpWrite  = 0;
+        buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+        buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+//        seqFrame2HB++;
+        while(nDataBytesLeft > 0)
+		{
+
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+            
+			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (&(buffHK[buffHKRead])  + curRead), nBytes);
+
+			nDataBytesLeft -= nBytes;
+			curRead += nBytes;
+            tmpWrite += nBytes;
+            if (FRAME_DATA_BYTES <= tmpWrite)
+            {
+                if((FRAME_BUFFER_BLOCK_SIZE - 1) == buffFrameData[ buffFrameDataWrite ].seqL )
+                {
+                    seqFrame2HB++;
+                }
+                buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+                if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+                {
+                    buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+                    cntFramesDropped++;
+                }
+                if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+                {
+                    buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+                    cntFramesDroppedUSB++;
+                }
+                buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+                buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+               
+                tmpWrite = 0;
+            }
+		}
+		
+		if (FRAME_DATA_BYTES > tmpWrite)
+		{
+            uint8 bytesAlign = WRAP(tmpWrite, 3); //calc number of bytes off 3 byte alignment and temp store in iterRev (done with EOR checks)
+            if (0 != bytesAlign) //check if misaligned search space
+            {
+                buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                if (1 == bytesAlign)// needs 2nd padding byte
+                {
+                    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                }
+            }
+            while (FRAME_DATA_BYTES > tmpWrite)
+            {
+			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
+                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                tmpWrite += 2;
+			}
+		}
+        buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+        if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+        {
+            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+            cntFramesDropped++;
+        }
+        if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+        {
+            buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+            cntFramesDroppedUSB++;
+        }
+		buffHKRead = WRAPINC(buffHKRead, HK_BUFFER_PACKETS);
+        
     }
     
     
@@ -1848,7 +1956,7 @@ int main(void)
 //    buffI2C[buffI2CRead + 1].mode = I2C_RTC_MODE_COMPLETE_XFER;
     
     InitFrameBuffer(); //intialize sync and seq num
-    
+    InitHKBuffer();
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
     I2C_RTC_MasterClearStatus();
