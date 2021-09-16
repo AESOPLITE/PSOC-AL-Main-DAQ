@@ -192,7 +192,6 @@ typedef struct HousekeepingPeriodic {
 	uint8 padding[HK_PAD_SIZE];
 	uint8 EOR[3];
 } HousekeepingPeriodic;
-typedef uint16 FmBufferIndex; //type of variable indexing the Frame buffer. should be uint16
 
 HousekeepingPeriodic buffHK[HK_BUFFER_PACKETS];
 uint8 buffHKRead = 0;
@@ -424,6 +423,12 @@ typedef struct BaroCoeff {
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapRead[NUM_BARO];
 uint8 buffBaroCapWrite[NUM_BARO];
+
+uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
+uint8 hkSecs = 5; //# of secs per housekeeping packet
+uint8 hkReq = FALSE; //state to request packet 
+uint8 hkCollecting = FALSE; //state to request packet 
+
 
 //const BaroCoEff baroCE[NUM_BARO] = {{.U0 = 1.0, .Y1 = 1.0, .Y2 = 1.0, .Y3 = 1.0, .C1 = 1.0, .C2 = 1.0, .C3 = 1.0, .D1 = 1.0, .D2 = 1.0, .T1 = 1.0, .T2 = 1.0, .T3 = 1.0, .T4 = 1.0, .T5 = 1.0 }};
 const BaroCoEff baroCE[NUM_BARO] = {{.U0 = 5.875516, .Y1 = -3947.926, .Y2 = -10090.9, .Y3 = 0.0, .C1 = 95.4503, .C2 = 2.982818, .C3 = -135.3036, .D1 = 0.042247, .D2 = 0.0, .T1 = 27.91302, .T2 = 0.873949, .T3 = 21.00155, .T4 = 36.63574, .T5 = 0.0 }};
@@ -813,7 +818,7 @@ FmBufferIndex InitFrameBuffer()
     return initFB;
 }
 
-FmBufferIndex InitHKBuffer()
+uint8 InitHKBuffer()
 {
     uint8 initHK = 0;
     while (HK_BUFFER_PACKETS > initHK)
@@ -828,6 +833,26 @@ FmBufferIndex InitHKBuffer()
         
     }
     return initHK;
+}
+
+uint8 CheckHKBuffer()
+{
+    if (TRUE == hkCollecting) //see if collecting is done
+    {
+        //checks for specific data collection
+        buffHKWrite = WRAPINC( buffHKWrite , HK_BUFFER_PACKETS );
+        hkCollecting = FALSE;
+        return 1;
+    }
+    else if (TRUE == hkReq) //see if collecting is done
+    {
+        hkCollecting = TRUE;
+        uint8 intState = CyEnterCriticalSection();
+        hkReq = FALSE;
+        CyExitCriticalSection(intState);
+        //start specific data collection
+    }
+    return 0;
 }
 
 #define EV_DUMP_SIZE (EV_BUFFER_SIZE - WRAP(EV_BUFFER_SIZE, FRAME_DATA_BYTES))
@@ -1803,7 +1828,18 @@ CY_ISR(ISRBaroCap)
 //	UART_HR_Data_PutChar(ENDDUMP_HEAD);
 	for (uint8 i=0;i<(NUM_BARO *2); i++) buffBaroCapRead[i] = buffBaroCapWrite[i];
 	
-	
+	if (0 == (cntSecs % hkSecs))
+    {
+        hkReq = TRUE;//request a new housekeeping packet
+        if ((255 - cntSecs) < hkSecs)
+        {
+            cntSecs=1;// reset to 1 before the rollover to 0 causes incosistant interval timing
+        }
+        else
+        {
+            cntSecs++;
+        }
+    }
 }
 
 
@@ -1968,6 +2004,9 @@ int main(void)
         int tempRes = CheckCmdBuffers();
         tempRes = CheckEventPackets(); //TODO Move order of this call
         tempRes = CheckFrameBuffer(); //TODO Move order of this call
+        tempRes = CheckHKBuffer(); //TODO Move order of this call
+        
+        
 		//if (SPIM_BP_GetRxBufferSize > 0)
 		//{
 //			SPIM_BP_ReadRxData();
