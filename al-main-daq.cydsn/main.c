@@ -1833,10 +1833,14 @@ CY_ISR(ISRBaroCap)
 	if (0 == (cntSecs % hkSecs))
     {
         hkReq = TRUE;//request a new housekeeping packet
-    }
-    if ((255 - cntSecs) < hkSecs)
-    {
-        cntSecs=1;// reset to 1 before the rollover to 0 causes incosistant interval timing
+        if ((255 - cntSecs) < hkSecs)
+        {
+            cntSecs=1;// reset to 1 before the rollover to 0 causes incosistant interval timing
+        }
+        else
+        {
+            cntSecs++;
+        }
     }
     else
     {
