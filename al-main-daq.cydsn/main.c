@@ -19,6 +19,7 @@
  * V1.6 Build large buffer for output frames
  * V1.7 Frame buffer now outputs event and SPI without filler frames 
  * V1.8 Adding initial houskeeping output 
+ * V1.9 Adding initial baro output 
  *
  * ========================================
 */
@@ -31,7 +32,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 8 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 9 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -185,10 +186,11 @@ FmBufferIndex buffFrameDataWrite = 0;
 uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seqL is set by init
 
 #define HK_BUFFER_PACKETS	(2u) //Number of houskeeping packets to buffer, min 2 
-#define HK_PAD_SIZE	1 //number of padding bytes need for 
+#define HK_PAD_SIZE	0 //number of padding bytes need for 
 typedef struct HousekeepingPeriodic {
 	uint8 header[3];
 	uint8 version[2];
+	uint8 baroTemp1[4];
 	uint8 padding[HK_PAD_SIZE];
 	uint8 EOR[3];
 } HousekeepingPeriodic;
@@ -418,7 +420,7 @@ typedef struct BaroCoeff {
 
 #define BARO_COUNT_TO_US (12)
 #define NUM_BARO 2
-#define NUM_BARO_CAPTURES 4
+#define NUM_BARO_CAPTURES 8
 
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapRead[NUM_BARO];
@@ -853,6 +855,15 @@ uint8 CheckHKBuffer()
         hkReq = FALSE;
         CyExitCriticalSection(intState);
         //start specific data collection
+        uint32 temp32 = curBaroTempCnt[0];
+        uint8 i=3;
+        buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF;
+        while (0 <= --i)
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF;
+        }
+        
     }
     return 0;
 }
@@ -1828,7 +1839,28 @@ CY_ISR(ISRBaroCap)
 //	UART_HR_Data_PutChar(n);
 //	UART_HR_Data_PutArray((uint8*) buffBaroCap, sizeof(buffBaroCap));
 //	UART_HR_Data_PutChar(ENDDUMP_HEAD);
-	for (uint8 i=0;i<(NUM_BARO *2); i++) buffBaroCapRead[i] = buffBaroCapWrite[i];
+//	for (uint8 i=0;i<(NUM_BARO *2); i++) buffBaroCapRead[i] = buffBaroCapWrite[i];
+	for (uint8 i=0;i<(NUM_BARO); i++) 
+    {
+        uint8 n = i << 1;
+        uint16 temp16;
+        while(buffBaroCapRead[n] != buffBaroCapWrite[n])
+        {
+            temp16 = buffBaroCap[n][buffBaroCapRead[n]];
+            if ( (uint16)(curBaroTempCnt[i] & 0xFFFF) > temp16)
+            {
+                curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
+            }
+            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
+            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
+            {
+                curBaroTempCnt[i] &= 0xFFFF0000;
+                curBaroTempCnt[i] |= temp16;
+            }
+        }
+        n++;
+        //TODO pres
+    }
 	
 	if (0 == (cntSecs % hkSecs))
     {
