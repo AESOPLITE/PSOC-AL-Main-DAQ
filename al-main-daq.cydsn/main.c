@@ -856,7 +856,7 @@ uint8 CheckHKBuffer()
         CyExitCriticalSection(intState);
         //start specific data collection
         uint32 temp32 = curBaroTempCnt[0];
-        uint8 i=3;
+        int8 i=3;
         buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF;
         while (0 <= --i)
         {
