@@ -953,11 +953,11 @@ int8 CheckFrameBuffer()
 //        seqFrame2HB++;
         while(nDataBytesLeft > 0)
 		{
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
 			if (curEOR < curRead)
 			{
-				nBytes = MIN(EV_BUFFER_SIZE - curRead, nDataBytesLeft);
+				nBytes = MIN(EV_BUFFER_SIZE - curRead, nBytes);
 			}
-			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
             
 			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffEv + curRead), nBytes);
 
@@ -972,6 +972,7 @@ int8 CheckFrameBuffer()
 			if (curRead >= (EV_BUFFER_SIZE - 1))
 			{
 				curRead = buffEvRead = 0;
+//				curRead = 0;
 			}
 			else
 			{
