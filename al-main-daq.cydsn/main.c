@@ -186,11 +186,15 @@ FmBufferIndex buffFrameDataWrite = 0;
 uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seqL is set by init
 
 #define HK_BUFFER_PACKETS	(2u) //Number of houskeeping packets to buffer, min 2 
-#define HK_PAD_SIZE	0 //number of padding bytes need for 
+#define HK_PAD_SIZE	21 //number of padding bytes need for 
 typedef struct HousekeepingPeriodic {
 	uint8 header[3];
 	uint8 version[2];
-	uint8 baroTemp1[4];
+	uint8 paddingTemp[25];
+	uint8 baroTemp1[3];
+	uint8 baroPres1[3];
+    uint8 baroTemp2[3];
+	uint8 baroPres2[3];
 	uint8 padding[HK_PAD_SIZE];
 	uint8 EOR[3];
 } HousekeepingPeriodic;
@@ -199,7 +203,7 @@ HousekeepingPeriodic buffHK[HK_BUFFER_PACKETS];
 uint8 buffHKRead = 0;
 uint8 buffHKWrite = 0;
 
-#define HK_HEAD	(0xF8u) //usign counter1 for main PSOC hk right now
+#define HK_HEAD	(0xF8u) //usign counter1 for main PSOC hk right now DEBUG
 
 //#define COUNTER_PACKET_BYTES	(45u)
 
@@ -839,7 +843,6 @@ uint8 InitHKBuffer()
 
 uint8 CheckHKBuffer()
 {
-    uint8 tempEn = isr_B_GetState();// debug
     if (TRUE == hkCollecting) //see if collecting is done
     {
         //checks for specific data collection
@@ -848,7 +851,7 @@ uint8 CheckHKBuffer()
         isr_B_SetPending();
         return 1;
     }
-    else if ((TRUE == hkReq)&& tempEn) //see if collecting is done
+    else if ((TRUE == hkReq)) //see if req is made by ISRCheckBaro
     {
         hkCollecting = TRUE;
         uint8 intState = CyEnterCriticalSection();
@@ -856,14 +859,41 @@ uint8 CheckHKBuffer()
         CyExitCriticalSection(intState);
         //start specific data collection
         uint32 temp32 = curBaroTempCnt[0];
-        int8 i=3;
-        buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF;
-        while (0 <= --i)
+//        int8 i=3; //32bit
+        int8 i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
         {
             temp32 >>= 8;
             buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF;
         }
-        
+        temp32 = curBaroPresCnt[0];
+//      i=3; //32bit
+        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroPres1[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroPres1[i] = temp32 & 0xFF;
+        }
+        temp32 = curBaroTempCnt[1];
+//        int8 i=3; //32bit
+        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroTemp2[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroTemp2[i] = temp32 & 0xFF;
+        }
+        temp32 = curBaroPresCnt[1];
+//      i=3; //32bit
+        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroPres2[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroPres2[i] = temp32 & 0xFF;
+        }
     }
     return 0;
 }
@@ -1859,6 +1889,20 @@ CY_ISR(ISRBaroCap)
             }
         }
         n++;
+        while(buffBaroCapRead[n] != buffBaroCapWrite[n])
+        {
+            temp16 = buffBaroCap[n][buffBaroCapRead[n]];
+            if ( (uint16)(curBaroTempCnt[i] & 0xFFFF) > temp16)
+            {
+                curBaroPresCnt[i] += 0x10000; // rollover, increment upper MSB
+            }
+            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
+            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
+            {
+                curBaroPresCnt[i] &= 0xFFFF0000;
+                curBaroPresCnt[i] |= temp16;
+            }
+        }
         //TODO pres
     }
 	
