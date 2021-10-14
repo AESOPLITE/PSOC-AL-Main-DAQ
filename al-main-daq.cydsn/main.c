@@ -835,6 +835,7 @@ uint8 InitHKBuffer()
         buffHK[initHK].version[1] = MINOR_VERSION;
         buffHK[initHK].EOR[0] = EOR_HEAD;
         memcpy(buffHK[initHK].EOR + 1, frame00FF, 2);
+        memset(buffHK[initHK].padding, 0, HK_PAD_SIZE);
         initHK++;
         
     }
@@ -1241,8 +1242,10 @@ int8 CheckFrameBuffer()
 		{
 
 			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
-            
-			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (&(buffHK[buffHKRead])  + curRead), nBytes);
+            void* addHK = (void*)(&(buffHK[buffHKRead]))  + curRead; //DEBUG
+
+//			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (&(buffHK[buffHKRead])  + curRead), nBytes);
+			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (addHK), nBytes);// DEBUG
 
 			nDataBytesLeft -= nBytes;
 			curRead += nBytes;
@@ -1874,10 +1877,11 @@ CY_ISR(ISRBaroCap)
     {
         uint8 n = i << 1;
         uint16 temp16;
+        uint16 last16 =(uint16)(curBaroTempCnt[i] & 0xFFFF);
         while(buffBaroCapRead[n] != buffBaroCapWrite[n])
         {
             temp16 = buffBaroCap[n][buffBaroCapRead[n]];
-            if ( (uint16)(curBaroTempCnt[i] & 0xFFFF) > temp16)
+            if ( last16 > temp16)
             {
                 curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
             }
@@ -1887,12 +1891,17 @@ CY_ISR(ISRBaroCap)
                 curBaroTempCnt[i] &= 0xFFFF0000;
                 curBaroTempCnt[i] |= temp16;
             }
+            else
+            {
+                last16 = temp16;
+            }
         }
         n++;
+        last16 =(uint16)(curBaroPresCnt[i] & 0xFFFF);
         while(buffBaroCapRead[n] != buffBaroCapWrite[n])
         {
             temp16 = buffBaroCap[n][buffBaroCapRead[n]];
-            if ( (uint16)(curBaroTempCnt[i] & 0xFFFF) > temp16)
+            if ( last16 > temp16)
             {
                 curBaroPresCnt[i] += 0x10000; // rollover, increment upper MSB
             }
@@ -1901,6 +1910,10 @@ CY_ISR(ISRBaroCap)
             {
                 curBaroPresCnt[i] &= 0xFFFF0000;
                 curBaroPresCnt[i] |= temp16;
+            }
+            else
+            {
+                last16 = temp16;
             }
         }
         //TODO pres
