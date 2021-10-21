@@ -1061,7 +1061,7 @@ int8 CheckFrameBuffer()
 			}
 			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
             
-			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffEv + curRead), nBytes);
+			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (buffEv + curRead), nBytes);
 
 			nDataBytesLeft -= nBytes;
 			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
@@ -1119,7 +1119,7 @@ int8 CheckFrameBuffer()
             while (FRAME_DATA_BYTES > tmpWrite)
             {
 			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
-                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), frame00FF, 2);
                 tmpWrite += 2;
 			}
 		}
@@ -1155,7 +1155,7 @@ int8 CheckFrameBuffer()
 			}
 			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
             
-			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffSPI[curSPIDev]  + curRead), nBytes);
+			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (void*) &(buffSPI[curSPIDev] [ curRead ]), nBytes);
 
 			nDataBytesLeft -= nBytes;
 			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
@@ -1213,7 +1213,7 @@ int8 CheckFrameBuffer()
             while (FRAME_DATA_BYTES > tmpWrite)
             {
 			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
-                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), frame00FF, 2);
                 tmpWrite += 2;
 			}
 		}
@@ -1242,10 +1242,11 @@ int8 CheckFrameBuffer()
 		{
 
 			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
-            void* addHK = (void*)(&(buffHK[buffHKRead]))  + curRead; //DEBUG
+//            void* addHK = (void*)(&(buffHK[buffHKRead]))  + curRead; //DEBUG
 
-//			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (&(buffHK[buffHKRead])  + curRead), nBytes);
-			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (addHK), nBytes);// DEBUG
+//			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (&(buffHK[buffHKRead])  + curRead), nBytes);
+//			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (addHK), nBytes);// DEBUG
+			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (void*)(&(buffHK[buffHKRead]))  + curRead, nBytes);
 
 			nDataBytesLeft -= nBytes;
 			curRead += nBytes;
@@ -1288,7 +1289,7 @@ int8 CheckFrameBuffer()
             while (FRAME_DATA_BYTES > tmpWrite)
             {
 			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
-                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), frame00FF, 2);
                 tmpWrite += 2;
 			}
 		}
