@@ -151,7 +151,7 @@ uint8 packetEvTail = 0u;
 typedef struct PacketLocation {
 	SPIBufferIndex index;
 	SPIBufferIndex header;
-	EvBufferIndex EOR; //last byte (inclusive) in the read should be LSB FF of FF00FF  
+	SPIBufferIndex EOR; //last byte (inclusive) in the read should be LSB FF of FF00FF  
 } PacketLocation;
 
 #define PACKET_FIFO_SIZE	 (16u * NUM_SPI_DEV)
@@ -1059,7 +1059,11 @@ int8 CheckFrameBuffer()
 			{
 				nBytes = MIN(EV_BUFFER_SIZE - curRead, nDataBytesLeft);
 			}
-			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+            else
+            {
+                nBytes = nDataBytesLeft;
+            }
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nBytes);
             
 			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (buffEv + curRead), nBytes);
 
@@ -1153,7 +1157,12 @@ int8 CheckFrameBuffer()
 			{
 				nBytes = MIN(SPI_BUFFER_SIZE - curRead, nDataBytesLeft);
 			}
-			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+            else
+            {
+                nBytes = nDataBytesLeft;
+            }
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nBytes);
+//			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
             
 			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (void*) &(buffSPI[curSPIDev] [ curRead ]), nBytes);
 
