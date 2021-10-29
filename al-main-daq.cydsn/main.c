@@ -18,6 +18,8 @@
  * V1.4 Added RTC write default date to I2C RTC
  * V1.6 Build large buffer for output frames
  * V1.7 Frame buffer now outputs event and SPI without filler frames 
+ * V1.8 Adding initial houskeeping output 
+ * V1.9 Adding initial baro output 
  *
  * ========================================
 */
@@ -30,7 +32,7 @@
 #include "errno.h"
 
 #define MAJOR_VERSION 1 //MSB of version, changes on major revisions, able to readout in 1 byte expand to 2 bytes if need
-#define MINOR_VERSION 7 //LSB of version, changes every commited revision, able to readout in 1 byte
+#define MINOR_VERSION 9 //LSB of version, changes every commited revision, able to readout in 1 byte
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 //#define WRAPINC(a,b) (((a)>=(b-1))?(0):(a + 1))
@@ -149,7 +151,7 @@ uint8 packetEvTail = 0u;
 typedef struct PacketLocation {
 	SPIBufferIndex index;
 	SPIBufferIndex header;
-	EvBufferIndex EOR; //last byte (inclusive) in the read should be LSB FF of FF00FF  
+	SPIBufferIndex EOR; //last byte (inclusive) in the read should be LSB FF of FF00FF  
 } PacketLocation;
 
 #define PACKET_FIFO_SIZE	 (16u * NUM_SPI_DEV)
@@ -183,8 +185,27 @@ FmBufferIndex buffFrameDataWrite = 0;
 
 uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seqL is set by init
 
+#define HK_BUFFER_PACKETS	(2u) //Number of houskeeping packets to buffer, min 2 
+#define HK_PAD_SIZE	21 //number of padding bytes need for 
+typedef struct HousekeepingPeriodic {
+	uint8 header[3];
+	uint8 version[2];
+	uint8 paddingTemp[25];
+	uint8 baroTemp1[3];
+	uint8 baroPres1[3];
+    uint8 baroTemp2[3];
+	uint8 baroPres2[3];
+	uint8 padding[HK_PAD_SIZE];
+	uint8 EOR[3];
+} HousekeepingPeriodic;
 
-#define COUNTER_PACKET_BYTES	(45u)
+HousekeepingPeriodic buffHK[HK_BUFFER_PACKETS];
+uint8 buffHKRead = 0;
+uint8 buffHKWrite = 0;
+
+#define HK_HEAD	(0xF8u) //usign counter1 for main PSOC hk right now DEBUG
+
+//#define COUNTER_PACKET_BYTES	(45u)
 
 /* Defines for DMA_LR_Cmd_1 */
 #define DMA_LR_Cmd_1_BYTES_PER_BURST 1
@@ -403,11 +424,17 @@ typedef struct BaroCoeff {
 
 #define BARO_COUNT_TO_US (12)
 #define NUM_BARO 2
-#define NUM_BARO_CAPTURES 4
+#define NUM_BARO_CAPTURES 8
 
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapRead[NUM_BARO];
 uint8 buffBaroCapWrite[NUM_BARO];
+
+volatile uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
+uint8 hkSecs = 5; //# of secs per housekeeping packet
+volatile uint8 hkReq = FALSE; //state to request packet 
+uint8 hkCollecting = FALSE; //state to request packet 
+
 
 //const BaroCoEff baroCE[NUM_BARO] = {{.U0 = 1.0, .Y1 = 1.0, .Y2 = 1.0, .Y3 = 1.0, .C1 = 1.0, .C2 = 1.0, .C3 = 1.0, .D1 = 1.0, .D2 = 1.0, .T1 = 1.0, .T2 = 1.0, .T3 = 1.0, .T4 = 1.0, .T5 = 1.0 }};
 const BaroCoEff baroCE[NUM_BARO] = {{.U0 = 5.875516, .Y1 = -3947.926, .Y2 = -10090.9, .Y3 = 0.0, .C1 = 95.4503, .C2 = 2.982818, .C3 = -135.3036, .D1 = 0.042247, .D2 = 0.0, .T1 = 27.91302, .T2 = 0.873949, .T3 = 21.00155, .T4 = 36.63574, .T5 = 0.0 }};
@@ -797,6 +824,81 @@ FmBufferIndex InitFrameBuffer()
     return initFB;
 }
 
+uint8 InitHKBuffer()
+{
+    uint8 initHK = 0;
+    while (HK_BUFFER_PACKETS > initHK)
+    {
+        buffHK[initHK].header[0] = HK_HEAD;
+        memcpy(buffHK[initHK].header + 1, frame00FF, 2);
+        buffHK[initHK].version[0] = MAJOR_VERSION;
+        buffHK[initHK].version[1] = MINOR_VERSION;
+        buffHK[initHK].EOR[0] = EOR_HEAD;
+        memcpy(buffHK[initHK].EOR + 1, frame00FF, 2);
+        memset(buffHK[initHK].padding, 0, HK_PAD_SIZE);
+        initHK++;
+        
+    }
+    return initHK;
+}
+
+uint8 CheckHKBuffer()
+{
+    if (TRUE == hkCollecting) //see if collecting is done
+    {
+        //checks for specific data collection
+        buffHKWrite = WRAPINC( buffHKWrite , HK_BUFFER_PACKETS );
+        hkCollecting = FALSE;
+        isr_B_SetPending();
+        return 1;
+    }
+    else if ((TRUE == hkReq)) //see if req is made by ISRCheckBaro
+    {
+        hkCollecting = TRUE;
+        uint8 intState = CyEnterCriticalSection();
+        hkReq = FALSE;
+        CyExitCriticalSection(intState);
+        //start specific data collection
+        uint32 temp32 = curBaroTempCnt[0];
+//        int8 i=3; //32bit
+        int8 i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroTemp1[i] = temp32 & 0xFF;
+        }
+        temp32 = curBaroPresCnt[0];
+//      i=3; //32bit
+        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroPres1[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroPres1[i] = temp32 & 0xFF;
+        }
+        temp32 = curBaroTempCnt[1];
+//        int8 i=3; //32bit
+        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroTemp2[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroTemp2[i] = temp32 & 0xFF;
+        }
+        temp32 = curBaroPresCnt[1];
+//      i=3; //32bit
+        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].baroPres2[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].baroPres2[i] = temp32 & 0xFF;
+        }
+    }
+    return 0;
+}
+
 #define EV_DUMP_SIZE (EV_BUFFER_SIZE - WRAP(EV_BUFFER_SIZE, FRAME_DATA_BYTES))
 #define EV_MIN_SIZE (9u)
 #define EV_MAX_SIZE (255u + 9u) //max 1 byte len + addtional bytes
@@ -959,7 +1061,7 @@ int8 CheckFrameBuffer()
 				nBytes = MIN(EV_BUFFER_SIZE - curRead, nBytes);
 			}
             
-			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffEv + curRead), nBytes);
+			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (buffEv + curRead), nBytes);
 
 			nDataBytesLeft -= nBytes;
 			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
@@ -1018,7 +1120,7 @@ int8 CheckFrameBuffer()
             while (FRAME_DATA_BYTES > tmpWrite)
             {
 			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
-                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), frame00FF, 2);
                 tmpWrite += 2;
 			}
 		}
@@ -1048,13 +1150,23 @@ int8 CheckFrameBuffer()
 //        seqFrame2HB++;
         while(nDataBytesLeft > 0)
 		{
+            nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
 			if (curEOR < curRead)
 			{
-				nBytes = MIN(SPI_BUFFER_SIZE - curRead, nDataBytesLeft);
+				nBytes = MIN(SPI_BUFFER_SIZE - curRead, nBytes);
 			}
-			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+			// if (curEOR < curRead)
+			// {
+			// 	nBytes = MIN(SPI_BUFFER_SIZE - curRead, nDataBytesLeft);
+			// }
+            // else
+            // {
+            //     nBytes = nDataBytesLeft;
+            // }
+			// nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nBytes);
+//			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
             
-			memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), (buffSPI[curSPIDev]  + curRead), nBytes);
+			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (void*) &(buffSPI[curSPIDev] [ curRead ]), nBytes);
 
 			nDataBytesLeft -= nBytes;
 			curRead += (nBytes - 1); //avoiding overflow with - 1 , will add later
@@ -1112,7 +1224,7 @@ int8 CheckFrameBuffer()
             while (FRAME_DATA_BYTES > tmpWrite)
             {
 			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
-                memcpy( (buffFrameData[ buffFrameDataWrite ].data + tmpWrite), frame00FF, 2);
+                memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), frame00FF, 2);
                 tmpWrite += 2;
 			}
 		}
@@ -1127,6 +1239,84 @@ int8 CheckFrameBuffer()
             buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
             cntFramesDroppedUSB++;
         }
+    }
+    else if (buffHKRead != buffHKWrite) //check if queued Housekeeping packets
+    {
+        uint8 curRead = 0;
+        uint8 nDataBytesLeft = sizeof(HousekeepingPeriodic);
+        uint8 nBytes = 0;
+        uint8 tmpWrite  = 0;
+        buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+        buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+//        seqFrame2HB++;
+        while(nDataBytesLeft > 0)
+		{
+
+			nBytes = MIN(FRAME_DATA_BYTES - tmpWrite, nDataBytesLeft);
+//            void* addHK = (void*)(&(buffHK[buffHKRead]))  + curRead; //DEBUG
+
+//			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (&(buffHK[buffHKRead])  + curRead), nBytes);
+//			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (addHK), nBytes);// DEBUG
+			memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), (void*)(&(buffHK[buffHKRead]))  + curRead, nBytes);
+
+			nDataBytesLeft -= nBytes;
+			curRead += nBytes;
+            tmpWrite += nBytes;
+            if (FRAME_DATA_BYTES <= tmpWrite)
+            {
+                if((FRAME_BUFFER_BLOCK_SIZE - 1) == buffFrameData[ buffFrameDataWrite ].seqL )
+                {
+                    seqFrame2HB++;
+                }
+                buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+                if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+                {
+                    buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+                    cntFramesDropped++;
+                }
+                if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+                {
+                    buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+                    cntFramesDroppedUSB++;
+                }
+                buffFrameData[ buffFrameDataWrite ].seqM =  seqFrame2HB & 0xFF; //middle seqence byte
+                buffFrameData[ buffFrameDataWrite ].seqH =  seqFrame2HB >> 8; //high seqence byte
+               
+                tmpWrite = 0;
+            }
+		}
+		
+		if (FRAME_DATA_BYTES > tmpWrite)
+		{
+            uint8 bytesAlign = WRAP(tmpWrite, 3); //calc number of bytes off 3 byte alignment and temp store in iterRev (done with EOR checks)
+            if (0 != bytesAlign) //check if misaligned search space
+            {
+                buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                if (1 == bytesAlign)// needs 2nd padding byte
+                {
+                    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = 0x00; //add padding byte to fix alignment
+                }
+            }
+            while (FRAME_DATA_BYTES > tmpWrite)
+            {
+			    buffFrameData[ buffFrameDataWrite ].data[ tmpWrite++ ] = NULL_HEAD;
+                memcpy( (void*) &(buffFrameData[ buffFrameDataWrite ].data[ tmpWrite ]), frame00FF, 2);
+                tmpWrite += 2;
+			}
+		}
+        buffFrameDataWrite = WRAPINC(buffFrameDataWrite, FRAME_BUFFER_SIZE);
+        if (buffFrameDataWrite == buffFrameDataRead) //Overwrite and drop RS232 frame
+        {
+            buffFrameDataRead = WRAPINC(buffFrameDataRead, FRAME_BUFFER_SIZE);
+            cntFramesDropped++;
+        }
+        if (buffFrameDataWrite == buffFrameDataReadUSB) //Overwrite and drop USB frame
+        {
+            buffFrameDataReadUSB = WRAPINC(buffFrameDataReadUSB, FRAME_BUFFER_SIZE);
+            cntFramesDroppedUSB++;
+        }
+		buffHKRead = WRAPINC(buffHKRead, HK_BUFFER_PACKETS);
+        
     }
     
     
@@ -1649,7 +1839,7 @@ CY_ISR(ISRHRTx)
 }
 CY_ISR(ISRBaroCap)
 {
-	
+	isr_B_ClearPending();
 	uint8 continueCheck = FALSE;
 //	uint8 n =0;
 	do {
@@ -1694,9 +1884,69 @@ CY_ISR(ISRBaroCap)
 //	UART_HR_Data_PutChar(n);
 //	UART_HR_Data_PutArray((uint8*) buffBaroCap, sizeof(buffBaroCap));
 //	UART_HR_Data_PutChar(ENDDUMP_HEAD);
-	for (uint8 i=0;i<(NUM_BARO *2); i++) buffBaroCapRead[i] = buffBaroCapWrite[i];
+//	for (uint8 i=0;i<(NUM_BARO *2); i++) buffBaroCapRead[i] = buffBaroCapWrite[i];
+	for (uint8 i=0;i<(NUM_BARO); i++) 
+    {
+        uint8 n = i << 1;
+        uint16 temp16;
+        uint16 last16 =(uint16)(curBaroTempCnt[i] & 0xFFFF);
+        while(buffBaroCapRead[n] != buffBaroCapWrite[n])
+        {
+            temp16 = buffBaroCap[n][buffBaroCapRead[n]];
+            if ( last16 > temp16)
+            {
+                curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
+            }
+            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
+            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
+            {
+                curBaroTempCnt[i] &= 0xFFFF0000;
+                curBaroTempCnt[i] |= temp16;
+            }
+            else
+            {
+                last16 = temp16;
+            }
+        }
+        n++;
+        last16 =(uint16)(curBaroPresCnt[i] & 0xFFFF);
+        while(buffBaroCapRead[n] != buffBaroCapWrite[n])
+        {
+            temp16 = buffBaroCap[n][buffBaroCapRead[n]];
+            if ( last16 > temp16)
+            {
+                curBaroPresCnt[i] += 0x10000; // rollover, increment upper MSB
+            }
+            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
+            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
+            {
+                curBaroPresCnt[i] &= 0xFFFF0000;
+                curBaroPresCnt[i] |= temp16;
+            }
+            else
+            {
+                last16 = temp16;
+            }
+        }
+        //TODO pres
+    }
 	
-	
+	if (0 == (cntSecs % hkSecs))
+    {
+        hkReq = TRUE;//request a new housekeeping packet
+        if ((255 - cntSecs) < hkSecs)
+        {
+            cntSecs=1;// reset to 1 before the rollover to 0 causes incosistant interval timing
+        }
+        else
+        {
+            cntSecs++;
+        }
+    }
+    else
+    {
+        cntSecs++;
+    }
 }
 
 
@@ -1849,7 +2099,7 @@ int main(void)
 //    buffI2C[buffI2CRead + 1].mode = I2C_RTC_MODE_COMPLETE_XFER;
     
     InitFrameBuffer(); //intialize sync and seq num
-    
+    InitHKBuffer();
     CyDelay(7000); //7 sec delay for boards to init TODO Debug
 
     I2C_RTC_MasterClearStatus();
@@ -1861,6 +2111,9 @@ int main(void)
         int tempRes = CheckCmdBuffers();
         tempRes = CheckEventPackets(); //TODO Move order of this call
         tempRes = CheckFrameBuffer(); //TODO Move order of this call
+        tempRes = CheckHKBuffer(); //TODO Move order of this call
+        
+        
 		//if (SPIM_BP_GetRxBufferSize > 0)
 		//{
 //			SPIM_BP_ReadRxData();
