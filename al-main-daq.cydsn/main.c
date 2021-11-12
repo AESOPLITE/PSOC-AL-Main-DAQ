@@ -836,6 +836,7 @@ uint8 InitRTC()
     mainTimeDate->Month = 0;
     mainTimeDate->Year = MINOR_VERSION;
     RTC_Main_WriteTime(mainTimeDate);
+    RTC_Main_Start();
     return mainTimeDate->Year;
 }
 uint8 InitHKBuffer()
