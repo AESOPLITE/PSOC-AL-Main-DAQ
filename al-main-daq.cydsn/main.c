@@ -191,7 +191,8 @@ uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seq
 typedef struct HousekeepingPeriodic {
 	uint8 header[3];
 	uint8 version[2];
-	uint8 paddingTemp[25];
+	uint8 secs[4];
+	uint8 paddingTemp[21];
 	uint8 baroTemp1[3];
 	uint8 baroPres1[3];
     uint8 baroTemp2[3];
@@ -907,6 +908,16 @@ uint8 CheckHKBuffer()
         {
             temp32 >>= 8;
             buffHK[buffHKWrite].baroPres2[i] = temp32 & 0xFF;
+        }
+        mainTimeDate = RTC_Main_ReadTime();
+        temp32 = 60 * ( ( 60 * mainTimeDate->Hour) + mainTimeDate->Min ) + mainTimeDate->Sec; // Convert RTC to secs
+        i=3; //32bit
+//        i=2; //24bit for Counter1 style packet DEBUG
+        buffHK[buffHKWrite].secs[i] = temp32 & 0xFF; // to make this endian independent and output as big endian, fill the LSB first
+        while (0 <= --i) //Fill the Higher order bytes
+        {
+            temp32 >>= 8;
+            buffHK[buffHKWrite].secs[i] = temp32 & 0xFF;
         }
     }
     return 0;
