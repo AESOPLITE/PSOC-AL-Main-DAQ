@@ -825,6 +825,18 @@ FmBufferIndex InitFrameBuffer()
     return initFB;
 }
 
+uint8 InitRTC()
+{
+    mainTimeDate->Sec = 0;
+    mainTimeDate->Min = 0;
+    mainTimeDate->Hour = 0;
+//                mainTimeDate->DayOfWeek = (dataRTCI2C[4] & 0x07); //0 is not valid and WriteTime doesn't modify this
+    mainTimeDate->DayOfMonth = MAJOR_VERSION % 30;
+    mainTimeDate->Month = 0;
+    mainTimeDate->Year = MINOR_VERSION;
+    RTC_Main_WriteTime(mainTimeDate);
+    return mainTimeDate->Year;
+}
 uint8 InitHKBuffer()
 {
     uint8 initHK = 0;
@@ -2082,6 +2094,7 @@ int main(void)
 	isr_B_StartEx(ISRBaroCap);
     
     I2C_RTC_Start();
+    InitRTC();
     //Debug 1 write and read
 //    buffI2CRead = 0;
 //    buffI2CWrite = 2;
