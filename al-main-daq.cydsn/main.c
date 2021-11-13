@@ -1053,10 +1053,11 @@ int8 CheckFrameBuffer()
         }
     }
     
-    if ((0u != USBUART_CD_GetConfiguration()) )
+    if (buffFrameDataWrite != buffFrameDataReadUSB)
     {
-        if (buffFrameDataWrite != buffFrameDataReadUSB)
+        if ((0u != USBUART_CD_GetConfiguration()) )
         {
+        
 
             if (USBUART_CD_CDCIsReady())
             {
