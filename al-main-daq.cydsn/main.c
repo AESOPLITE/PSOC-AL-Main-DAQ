@@ -433,7 +433,7 @@ uint8 buffBaroCapRead[NUM_BARO];
 uint8 buffBaroCapWrite[NUM_BARO];
 
 volatile uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
-uint8 hkSecs = 5; //# of secs per housekeeping packet
+uint8 hkSecs = 1; //# of secs per housekeeping packet
 volatile uint8 hkReq = FALSE; //state to request packet 
 uint8 hkCollecting = FALSE; //state to request packet 
 
@@ -1954,9 +1954,8 @@ CY_ISR(ISRBaroCap)
                 last16 = temp16;
             }
         }
-        //TODO pres
     }
-	
+	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
 	if (0 == (cntSecs % hkSecs))
     {
         hkReq = TRUE;//request a new housekeeping packet
