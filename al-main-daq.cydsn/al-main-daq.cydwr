@@ -639,7 +639,7 @@
       <Data key="62c6a881-eadb-4949-9e9f-4433633a3b9b" value="Pin_BaroTempO2" />
       <Data key="67b2a294-8197-4890-915f-bfd555ac4a36" value="Pin_Sel_Ctr3" />
       <Data key="70ab7c8c-7a7f-4089-b1c2-2712d8405684" value="Pin_LED1" />
-      <Data key="264be2d3-9481-494b-8d9c-c1905a45e9cc" value="Pin_2" />
+      <Data key="264be2d3-9481-494b-8d9c-c1905a45e9cc" value="Pin_SDA" />
       <Data key="332a34eb-67b8-4d46-87de-0efeb718eb7c" value="Pin_1" />
       <Data key="386a0273-c79c-405d-9dfc-6b78e8d0018c" value="Pin_UARTRx" />
       <Data key="813cabde-0f27-44ec-b556-fce031b748a6" value="Pin_BaroTempO1" />
@@ -653,6 +653,7 @@
       <Data key="95673c29-4c0b-43f8-86ec-47a101973e8d" value="Pin_BaroTemp" />
       <Data key="537831b5-85a5-4c42-b3dc-10c85ec71536" value="Pin_Baro1TempBP" />
       <Data key="1425177d-0d0e-4468-8bcc-e638e5509a9b" value="MOSI_Ev" />
+      <Data key="1952763c-3315-4fe5-801f-e69a36e9ad22" value="Pin_CE1" />
       <Data key="4324378d-1c20-4690-b5ed-e39f3ef7fd5d" value="Pin_Sel6_HV2" />
       <Data key="19784692-9189-4e0b-b071-20d2649b0909" value="Pin_SRclk" />
       <Data key="64780476-c80a-479f-bfe7-e38df7ab7085" value="Pin_HRTx2temp" />
@@ -665,11 +666,11 @@
       <Data key="adef25f7-05bd-4a6f-9924-5d376aeb4f85" value="Pin_BaroPresO2" />
       <Data key="b4cbf60d-4f82-4fca-b8d1-7620aea0c90f" value="Pin_Load" />
       <Data key="b2964f7c-ff07-4366-a39a-a7e011ac28c1" value="SPI_SSN_Ev" />
-      <Data key="bb302a8c-9cc5-4d9b-8774-6e27a92cd280" value="Pin_Sel7C_J20" />
+      <Data key="bb302a8c-9cc5-4d9b-8774-6e27a92cd280" value="Pin_Sel7_J20" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/8b77a6c4-10a0-4390-971c-672353e2a49c" value="USBUART_CD_Dm" />
       <Data key="beca5e2d-f70f-4900-a4db-7eca1ed3126e/618a72fc-5ddd-4df5-958f-a3d55102db42" value="USBUART_CD_Dp" />
       <Data key="c0ececa8-913d-4f40-9321-db41f5692432" value="Rx_2" />
-      <Data key="c403c62c-0004-482d-bc7c-f5da331abfe3" value="Pin_3" />
+      <Data key="c403c62c-0004-482d-bc7c-f5da331abfe3" value="Pin_SCL" />
       <Data key="cf54f74d-372f-4a83-9dca-36fdefc7e288" value="Pin_Baro2PresBP" />
       <Data key="cfafc1df-7418-4851-bf12-cac5cbeb0cdf" value="Pin_HRTx" />
       <Data key="d40b9a74-26b2-4480-a28b-c5e271509d66" value="Rx_3" />
@@ -3916,6 +3917,11 @@
     <Group key="1425177d-0d0e-4468-8bcc-e638e5509a9b">
       <Group key="0">
         <Data key="Port Format" value="5,1" />
+      </Group>
+    </Group>
+    <Group key="1952763c-3315-4fe5-801f-e69a36e9ad22">
+      <Group key="0">
+        <Data key="Port Format" value="1,2" />
       </Group>
     </Group>
     <Group key="4324378d-1c20-4690-b5ed-e39f3ef7fd5d">

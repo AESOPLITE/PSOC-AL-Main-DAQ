@@ -1956,10 +1956,10 @@ CY_ISR(ISRBaroCap)
         }
     }
 	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
-	if (0 == (cntSecs % hkSecs))
+	if (0 == (cntSecs % tmpSecs))
     {
         hkReq = TRUE;//request a new housekeeping packet
-        if ((255 - cntSecs) < hkSecs)
+        if ((255 - cntSecs) < tmpSecs)
         {
             cntSecs=1;// reset to 1 before the rollover to 0 causes incosistant interval timing
         }
