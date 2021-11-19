@@ -920,6 +920,7 @@ uint8 CheckHKBuffer()
             temp32 >>= 8;
             buffHK[buffHKWrite].secs[i] = temp32 & 0xFF;
         }
+//        Pin_CE1_Write(buffHK[buffHKWrite].secs[3] % 2); //DEBUG timing on scope
     }
     return 0;
 }
@@ -1865,7 +1866,7 @@ CY_ISR(ISRHRTx)
 }
 CY_ISR(ISRBaroCap)
 {
-	isr_B_ClearPending();
+//	isr_B_ClearPending();
 	uint8 continueCheck = FALSE;
 //	uint8 n =0;
 	do {
@@ -1956,7 +1957,8 @@ CY_ISR(ISRBaroCap)
         }
     }
 	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
-	if (0 == (cntSecs % tmpSecs))
+//	Pin_CE1_Write(cntSecs % 2); //DEBUG timing on scope
+    if (0 == (cntSecs % tmpSecs))
     {
         hkReq = TRUE;//request a new housekeeping packet
         if ((255 - cntSecs) <= tmpSecs)
