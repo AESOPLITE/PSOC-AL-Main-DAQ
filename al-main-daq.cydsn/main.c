@@ -429,8 +429,8 @@ typedef struct BaroCoeff {
 #define NUM_BARO_CAPTURES 8
 
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
-uint8 buffBaroCapRead[NUM_BARO];
-uint8 buffBaroCapWrite[NUM_BARO];
+uint8 buffBaroCapRead[NUM_BARO *2];
+uint8 buffBaroCapWrite[NUM_BARO *2];
 
 volatile uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
 uint8 hkSecs = 1; //# of secs per housekeeping packet
@@ -864,7 +864,7 @@ uint8 CheckHKBuffer()
         //checks for specific data collection
         buffHKWrite = WRAPINC( buffHKWrite , HK_BUFFER_PACKETS );
         hkCollecting = FALSE;
-        isr_B_SetPending();
+//        isr_B_SetPending();
         return 1;
     }
     else if ((TRUE == hkReq)) //see if req is made by ISRCheckBaro
@@ -1959,7 +1959,7 @@ CY_ISR(ISRBaroCap)
 	if (0 == (cntSecs % tmpSecs))
     {
         hkReq = TRUE;//request a new housekeeping packet
-        if ((255 - cntSecs) < tmpSecs)
+        if ((255 - cntSecs) <= tmpSecs)
         {
             cntSecs=1;// reset to 1 before the rollover to 0 causes incosistant interval timing
         }
