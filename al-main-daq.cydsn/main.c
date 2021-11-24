@@ -426,7 +426,7 @@ typedef struct BaroCoeff {
 
 #define BARO_COUNT_TO_US (12)
 #define NUM_BARO 2
-#define NUM_BARO_CAPTURES 8
+#define NUM_BARO_CAPTURES 128//8
 
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapRead[NUM_BARO *2];
