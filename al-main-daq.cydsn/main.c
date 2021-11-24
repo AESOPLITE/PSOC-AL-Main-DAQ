@@ -1956,7 +1956,8 @@ CY_ISR(ISRBaroCap)
             }
         }
     }
-	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
+//	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
+	uint8 tmpSecs =  hkSecs << 2; //ISR is now 4Hz so need to adjust hkSecs to match
 //	Pin_CE1_Write(cntSecs % 2); //DEBUG timing on scope
     if (0 == (cntSecs % tmpSecs))
     {
