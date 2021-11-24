@@ -2266,6 +2266,10 @@ int main(void)
 //		}
 //		CheckCmdDma(0);
         
+        //debug force spi to send so scope can view delayed clk
+        SPIM_BP_WriteTxData(FILLBYTE);
+        CyDelay(100);
+        
 		switch (readStatusBP)
 		{
             uint8 tempnDrdy;
