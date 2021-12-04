@@ -431,6 +431,9 @@ typedef struct BaroCoeff {
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapRead[NUM_BARO *2];
 uint8 buffBaroCapWrite[NUM_BARO *2];
+//DEBUG with num caps per isr 
+uint16 buffBaroCapNum[NUM_BARO *2][NUM_BARO_CAPTURES]; 
+uint8 buffBaroCapNumWrite;
 
 volatile uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
 uint8 hkSecs = 1; //# of secs per housekeeping packet
@@ -920,6 +923,8 @@ uint8 CheckHKBuffer()
             temp32 >>= 8;
             buffHK[buffHKWrite].secs[i] = temp32 & 0xFF;
         }
+        
+        if ((0 == buffBaroCapNum[0][buffBaroCapNumWrite]) && (buffBaroCapNum[0][buffBaroCapNumWrite] == buffBaroCapNum[1][buffBaroCapNumWrite])  && (buffBaroCapNum[2][buffBaroCapNumWrite] == buffBaroCapNum[3][buffBaroCapNumWrite])) buffHK[buffHKWrite].padding[0]=1;//DEBUG
 //        Pin_CE1_Write(buffHK[buffHKWrite].secs[3] % 2); //DEBUG timing on scope
     }
     return 0;
@@ -1869,6 +1874,8 @@ CY_ISR(ISRBaroCap)
 //	isr_B_ClearPending();
 	uint8 continueCheck = FALSE;
 //	uint8 n =0;
+    //DEBUG
+    for(uint8 x =0; x<4; x++) buffBaroCapNum[x][buffBaroCapNumWrite] = 0;//DEBUG
 	do {
 		uint8 i = 0;
 //		uint tempStatus = Counter_BaroTemp1_ReadStatusRegister();
@@ -1882,6 +1889,7 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroTemp1_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
+            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
 		}
 		i = 2;
 		if (0 != (Counter_BaroTemp2_STATUS_FIFONEMP & Counter_BaroTemp2_ReadStatusRegister()))
@@ -1889,6 +1897,7 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroTemp2_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
+            buffBaroCapNum[i][buffBaroCapNumWrite]++;//DEBUG
 		}
 		i = 1;
 		if (0 != (Counter_BaroPres1_STATUS_FIFONEMP & Counter_BaroPres1_ReadStatusRegister()))
@@ -1896,6 +1905,7 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroPres1_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
+            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
 		}
 		i = 3;
 		if (0 != (Counter_BaroPres2_STATUS_FIFONEMP & Counter_BaroPres2_ReadStatusRegister()))
@@ -1903,9 +1913,11 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroPres2_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
+            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
 		}
 //		n++;
 	} while(continueCheck);
+    
 	//TODO Packing of Baro values along with thers like voltage.  For now just dump it to stream
 //	UART_HR_Data_PutChar(DUMP_HEAD);
 //	UART_HR_Data_PutChar(n);
