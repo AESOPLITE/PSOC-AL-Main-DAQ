@@ -1880,7 +1880,7 @@ CY_ISR(ISRHRTx)
 CY_ISR(ISRBaroCap)
 {
 //	isr_B_ClearPending();
-//    Pin_CE1_Write(1); //DEBUG
+    Pin_CE1_Write(1); //DEBUG
 	uint8 continueCheck = FALSE;
 //	uint8 n =0;
     //DEBUG
@@ -2003,7 +2003,7 @@ CY_ISR(ISRBaroCap)
     {
         cntSecs++;
     }
-//    Pin_CE1_Write(0); //DEBUG
+    Pin_CE1_Write(0); //DEBUG
     
 }
 
