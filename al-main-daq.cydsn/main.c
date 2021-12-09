@@ -1040,7 +1040,7 @@ int8 CheckEventPackets()
                     }
                 }
             }
-           CySoftwareReset
+           
             nBytes--; //shrink search space
             curEOR = WRAPDEC(curEOR, EV_BUFFER_SIZE); //Move back to check next byte
 //            nBytes = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1; //shrink search space to new endpoints, +1 inclusive
@@ -1880,6 +1880,7 @@ CY_ISR(ISRHRTx)
 CY_ISR(ISRBaroCap)
 {
 //	isr_B_ClearPending();
+//    Pin_CE1_Write(1); //DEBUG
 	uint8 continueCheck = FALSE;
 //	uint8 n =0;
     //DEBUG
@@ -2002,6 +2003,8 @@ CY_ISR(ISRBaroCap)
     {
         cntSecs++;
     }
+//    Pin_CE1_Write(0); //DEBUG
+    
 }
 
 
