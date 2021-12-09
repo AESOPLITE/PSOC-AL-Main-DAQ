@@ -831,6 +831,7 @@ FmBufferIndex InitFrameBuffer()
 
 uint8 InitRTC()
 {
+    mainTimeDate = RTC_Main_ReadTime();
     mainTimeDate->Sec = 0;
     mainTimeDate->Min = 0;
     mainTimeDate->Hour = 0;
@@ -913,7 +914,9 @@ uint8 CheckHKBuffer()
             temp32 >>= 8;
             buffHK[buffHKWrite].baroPres2[i] = temp32 & 0xFF;
         }
+        RTC_Main_DisableInt();
         mainTimeDate = RTC_Main_ReadTime();
+        RTC_Main_EnableInt();
         temp32 = 60 * ( ( 60 * mainTimeDate->Hour) + mainTimeDate->Min ) + mainTimeDate->Sec; // Convert RTC to secs
         i=3; //32bit
 //        i=2; //24bit for Counter1 style packet DEBUG
@@ -1452,7 +1455,9 @@ uint8 CheckRTC()
         uint8 intState = CyEnterCriticalSection();
         writeBuffCmd[tmpOrder] = WRAP(writeBuffCmd[tmpOrder] + 11, CMD_BUFFER_SIZE);
         CyExitCriticalSection(intState);
+        RTC_Main_DisableInt();
         mainTimeDate = RTC_Main_ReadTime();
+        RTC_Main_EnableInt();
         buffCmd[tmpOrder][tmpWrite][0] = 0x45; //Set RTC command
         buffCmd[tmpOrder][tmpWrite][1] = 0xA2; //8 Address, 10 bytes
         tmpWrite = WRAPINC(tmpWrite, CMD_BUFFER_SIZE);
