@@ -831,7 +831,7 @@ FmBufferIndex InitFrameBuffer()
 
 uint8 InitRTC()
 {
-    mainTimeDate = RTC_Main_ReadTime();
+    mainTimeDate = RTC_Main_ReadTime(); //TODO dont write to the read loactiion, create temp structure
     mainTimeDate->Sec = 0;
     mainTimeDate->Min = 0;
     mainTimeDate->Hour = 0;
