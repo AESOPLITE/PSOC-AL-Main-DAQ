@@ -923,8 +923,16 @@ uint8 CheckHKBuffer()
             temp32 >>= 8;
             buffHK[buffHKWrite].secs[i] = temp32 & 0xFF;
         }
-        
-        if ((0 == buffBaroCapNum[0][buffBaroCapNumWrite]) && (buffBaroCapNum[0][buffBaroCapNumWrite] == buffBaroCapNum[1][buffBaroCapNumWrite])  && (buffBaroCapNum[2][buffBaroCapNumWrite] == buffBaroCapNum[3][buffBaroCapNumWrite])) buffHK[buffHKWrite].padding[0]=1;//DEBUG
+        uint8 buffBaroCapNumWriteTemp = buffBaroCapNumWrite; //DEBUG
+        if (buffBaroCapNumWriteTemp )
+        {
+            buffBaroCapNumWriteTemp--;
+        }
+        else 
+        {
+            buffBaroCapNumWriteTemp = NUM_BARO_CAPTURES - 1;
+        }
+        if ((0 != buffBaroCapNum[0][buffBaroCapNumWriteTemp]) && (buffBaroCapNum[0][buffBaroCapNumWriteTemp] == buffBaroCapNum[1][buffBaroCapNumWriteTemp])  && (buffBaroCapNum[2][buffBaroCapNumWriteTemp] == buffBaroCapNum[3][buffBaroCapNumWriteTemp])) buffHK[buffHKWrite].padding[0]=1;//DEBUG
 //        Pin_CE1_Write(buffHK[buffHKWrite].secs[3] % 2); //DEBUG timing on scope
     }
     return 0;
@@ -1032,7 +1040,7 @@ int8 CheckEventPackets()
                     }
                 }
             }
-           
+           CySoftwareReset
             nBytes--; //shrink search space
             curEOR = WRAPDEC(curEOR, EV_BUFFER_SIZE); //Move back to check next byte
 //            nBytes = ACTIVELEN(curRead, curEOR, EV_BUFFER_SIZE) + 1; //shrink search space to new endpoints, +1 inclusive
@@ -1917,8 +1925,15 @@ CY_ISR(ISRBaroCap)
 		}
 //		n++;
 	} while(continueCheck);
-    
-	//TODO Packing of Baro values along with thers like voltage.  For now just dump it to stream
+    if (buffBaroCapNumWrite >= (NUM_BARO_CAPTURES - 1))//DEBUG
+    {
+        buffBaroCapNumWrite = 0 ;
+    }
+    else
+    {
+        buffBaroCapNumWrite++;//DEBUG
+	}
+    //TODO Packing of Baro values along with thers like voltage.  For now just dump it to stream
 //	UART_HR_Data_PutChar(DUMP_HEAD);
 //	UART_HR_Data_PutChar(n);
 //	UART_HR_Data_PutArray((uint8*) buffBaroCap, sizeof(buffBaroCap));
