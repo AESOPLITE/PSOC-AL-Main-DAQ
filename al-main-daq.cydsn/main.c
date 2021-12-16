@@ -188,15 +188,27 @@ uint16 seqFrame2HB = 0; //2 Highest bytes of the frame seq (seqH & seqM) the seq
 
 #define HK_BUFFER_PACKETS	(2u) //Number of houskeeping packets to buffer, min 2 
 #define HK_PAD_SIZE	21 //number of padding bytes need for 
-typedef struct HousekeepingPeriodic {
+//typedef struct HousekeepingPeriodic { //intended to Mimic Counter 1 (Power-Counter  Formats V3.txt) for early baro testing 
+//	uint8 header[3];
+//	uint8 version[2];
+//	uint8 secs[4];
+//	uint8 paddingTemp[21];
+//	uint8 baroTemp1[3];
+//	uint8 baroPres1[3];
+//    uint8 baroTemp2[3];
+//	uint8 baroPres2[3];
+//	uint8 padding[HK_PAD_SIZE];
+//	uint8 EOR[3];
+//} HousekeepingPeriodic;
+typedef struct HousekeepingPeriodic {// swaped pres and temperature for debug
 	uint8 header[3];
 	uint8 version[2];
 	uint8 secs[4];
 	uint8 paddingTemp[21];
-	uint8 baroTemp1[3];
 	uint8 baroPres1[3];
-    uint8 baroTemp2[3];
+	uint8 baroTemp1[3];
 	uint8 baroPres2[3];
+    uint8 baroTemp2[3];
 	uint8 padding[HK_PAD_SIZE];
 	uint8 EOR[3];
 } HousekeepingPeriodic;
