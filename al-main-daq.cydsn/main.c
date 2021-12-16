@@ -831,15 +831,17 @@ FmBufferIndex InitFrameBuffer()
 
 uint8 InitRTC()
 {
-    mainTimeDate = RTC_Main_ReadTime(); //TODO dont write to the read loactiion, create temp structure
-    mainTimeDate->Sec = 0;
-    mainTimeDate->Min = 0;
-    mainTimeDate->Hour = 0;
-//                mainTimeDate->DayOfWeek = (dataRTCI2C[4] & 0x07); //0 is not valid and WriteTime doesn't modify this
-    mainTimeDate->DayOfMonth = MAJOR_VERSION % 30;
-    mainTimeDate->Month = 0;
-    mainTimeDate->Year = MINOR_VERSION;
-    RTC_Main_WriteTime(mainTimeDate);
+//    mainTimeDate = RTC_Main_ReadTime(); //TODO dont write to the read loactiion, create temp structure
+    RTC_Main_TIME_DATE mainTimeDateTemp; //create temp structure
+    mainTimeDateTemp.Sec = 0;
+    mainTimeDateTemp.Min = 0;
+    mainTimeDateTemp.Hour = 0;
+    mainTimeDateTemp.DayOfWeek = 1; //0 is not valid and WriteTime doesn't modify this
+    mainTimeDateTemp.DayOfMonth = MAJOR_VERSION % 30;
+    mainTimeDateTemp.DayOfYear = MAJOR_VERSION % 30;
+    mainTimeDateTemp.Month = 1;
+    mainTimeDateTemp.Year = MINOR_VERSION;
+    RTC_Main_WriteTime(&mainTimeDateTemp);
     RTC_Main_Start();
     return mainTimeDate->Year;
 }
@@ -1956,6 +1958,7 @@ CY_ISR(ISRBaroCap)
             if ( last16 > temp16)
             {
                 curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
+                //TODO the counter period might be 1 short sothis might need to be adjusted
             }
             buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
             if (buffBaroCapRead[n] == buffBaroCapWrite[n])
