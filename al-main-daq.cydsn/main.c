@@ -436,7 +436,7 @@ uint16 buffBaroCapNum[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapNumWrite;
 
 volatile uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
-uint8 hkSecs = 1; //# of secs per housekeeping packet
+uint8 hkSecs = 5; //# of secs per housekeeping packet
 volatile uint8 hkReq = FALSE; //state to request packet 
 uint8 hkCollecting = FALSE; //state to request packet 
 
