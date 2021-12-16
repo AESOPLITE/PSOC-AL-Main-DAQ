@@ -1959,18 +1959,19 @@ CY_ISR(ISRBaroCap)
 //	UART_HR_Data_PutArray((uint8*) buffBaroCap, sizeof(buffBaroCap));
 //	UART_HR_Data_PutChar(ENDDUMP_HEAD);
 //	for (uint8 i=0;i<(NUM_BARO *2); i++) buffBaroCapRead[i] = buffBaroCapWrite[i];
-	for (uint8 i=0;i<(NUM_BARO); i++) 
+    for (uint8 i=0;i<(NUM_BARO); i++) 
     {
         uint8 n = i << 1;
         uint16 temp16;
         uint16 last16 =(uint16)(curBaroTempCnt[i] & 0xFFFF);
+        uint8 numRollover = 0;
         while(buffBaroCapRead[n] != buffBaroCapWrite[n])
         {
             temp16 = buffBaroCap[n][buffBaroCapRead[n]];
             if ( last16 > temp16)
             {
-                curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
-                //TODO the counter period might be 1 short sothis might need to be adjusted
+//                curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
+                numRollover++;
             }
             buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
             if (buffBaroCapRead[n] == buffBaroCapWrite[n])
@@ -1983,14 +1984,17 @@ CY_ISR(ISRBaroCap)
                 last16 = temp16;
             }
         }
+        for (uint8 x=0;x<numRollover; x++) curBaroTempCnt[i] += 0xFFFE; // period of the 16 bit counter maxes out at 65534 so add that per rollover, counter immediately turns to 0 at that count and counts up to 1 next baro pulse
         n++;
         last16 =(uint16)(curBaroPresCnt[i] & 0xFFFF);
+        numRollover = 0;
         while(buffBaroCapRead[n] != buffBaroCapWrite[n])
         {
             temp16 = buffBaroCap[n][buffBaroCapRead[n]];
             if ( last16 > temp16)
             {
-                curBaroPresCnt[i] += 0x10000; // rollover, increment upper MSB
+//                curBaroPresCnt[i] += 0x10000; // rollover, increment upper MSB
+                numRollover++;
             }
             buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
             if (buffBaroCapRead[n] == buffBaroCapWrite[n])
@@ -2003,6 +2007,7 @@ CY_ISR(ISRBaroCap)
                 last16 = temp16;
             }
         }
+        for (uint8 x=0;x<numRollover; x++) curBaroPresCnt[i] += 0xFFFE; // period of the 16 bit counter maxes out at 65534 so add that per rollover, counter immediately turns to 0 at that count and counts up to 1 next baro pulse
     }
 //	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
 	uint8 tmpSecs =  hkSecs << 2; //ISR is now 4Hz so need to adjust hkSecs to match
