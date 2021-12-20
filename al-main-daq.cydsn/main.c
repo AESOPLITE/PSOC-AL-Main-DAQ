@@ -439,13 +439,14 @@ typedef struct BaroCoeff {
 #define BARO_COUNT_TO_US (12)
 #define NUM_BARO 2
 #define NUM_BARO_CAPTURES 128//8
+#define BARO_COUNT_MAX 0xFFFE //65534 is the max count on a 16 counter
 
 uint16 buffBaroCap[NUM_BARO *2][NUM_BARO_CAPTURES];
 uint8 buffBaroCapRead[NUM_BARO *2];
 uint8 buffBaroCapWrite[NUM_BARO *2];
 //DEBUG with num caps per isr 
-uint16 buffBaroCapNum[NUM_BARO *2][NUM_BARO_CAPTURES]; 
-uint8 buffBaroCapNumWrite;
+//uint16 buffBaroCapNum[NUM_BARO *2][NUM_BARO_CAPTURES]; 
+//uint8 buffBaroCapNumWrite;
 
 volatile uint8 cntSecs = 0; //count 1 sec interrupts for housekeeping packet rates
 uint8 hkSecs = 5; //# of secs per housekeeping packet
@@ -940,16 +941,16 @@ uint8 CheckHKBuffer()
             temp32 >>= 8;
             buffHK[buffHKWrite].secs[i] = temp32 & 0xFF;
         }
-        uint8 buffBaroCapNumWriteTemp = buffBaroCapNumWrite; //DEBUG
-        if (buffBaroCapNumWriteTemp )
-        {
-            buffBaroCapNumWriteTemp--;
-        }
-        else 
-        {
-            buffBaroCapNumWriteTemp = NUM_BARO_CAPTURES - 1;
-        }
-        if ((0 != buffBaroCapNum[0][buffBaroCapNumWriteTemp]) && (buffBaroCapNum[0][buffBaroCapNumWriteTemp] == buffBaroCapNum[1][buffBaroCapNumWriteTemp])  && (buffBaroCapNum[2][buffBaroCapNumWriteTemp] == buffBaroCapNum[3][buffBaroCapNumWriteTemp])) buffHK[buffHKWrite].padding[0]=1;//DEBUG
+//        uint8 buffBaroCapNumWriteTemp = buffBaroCapNumWrite; //DEBUG
+//        if (buffBaroCapNumWriteTemp )
+//        {
+//            buffBaroCapNumWriteTemp--;
+//        }
+//        else 
+//        {
+//            buffBaroCapNumWriteTemp = NUM_BARO_CAPTURES - 1;
+//        }
+//        if ((0 != buffBaroCapNum[0][buffBaroCapNumWriteTemp]) && (buffBaroCapNum[0][buffBaroCapNumWriteTemp] == buffBaroCapNum[1][buffBaroCapNumWriteTemp])  && (buffBaroCapNum[2][buffBaroCapNumWriteTemp] == buffBaroCapNum[3][buffBaroCapNumWriteTemp])) buffHK[buffHKWrite].padding[0]=1;//DEBUG
 //        Pin_CE1_Write(buffHK[buffHKWrite].secs[3] % 2); //DEBUG timing on scope
     }
     return 0;
@@ -1903,7 +1904,7 @@ CY_ISR(ISRBaroCap)
 	uint8 continueCheck = FALSE;
 //	uint8 n =0;
     //DEBUG
-    for(uint8 x =0; x<4; x++) buffBaroCapNum[x][buffBaroCapNumWrite] = 0;//DEBUG
+//    for(uint8 x =0; x<4; x++) buffBaroCapNum[x][buffBaroCapNumWrite] = 0;//DEBUG
 	do {
 		uint8 i = 0;
 //		uint tempStatus = Counter_BaroTemp1_ReadStatusRegister();
@@ -1917,7 +1918,7 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroTemp1_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
-            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
+//            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
 		}
 		i = 2;
 		if (0 != (Counter_BaroTemp2_STATUS_FIFONEMP & Counter_BaroTemp2_ReadStatusRegister()))
@@ -1925,7 +1926,7 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroTemp2_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
-            buffBaroCapNum[i][buffBaroCapNumWrite]++;//DEBUG
+//            buffBaroCapNum[i][buffBaroCapNumWrite]++;//DEBUG
 		}
 		i = 1;
 		if (0 != (Counter_BaroPres1_STATUS_FIFONEMP & Counter_BaroPres1_ReadStatusRegister()))
@@ -1933,7 +1934,7 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroPres1_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
-            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
+//            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
 		}
 		i = 3;
 		if (0 != (Counter_BaroPres2_STATUS_FIFONEMP & Counter_BaroPres2_ReadStatusRegister()))
@@ -1941,18 +1942,18 @@ CY_ISR(ISRBaroCap)
 			continueCheck = TRUE;
 			buffBaroCap[i][buffBaroCapWrite[i]] = Counter_BaroPres2_ReadCapture();
 			buffBaroCapWrite[i] = WRAPINC(buffBaroCapWrite[i], NUM_BARO_CAPTURES);
-            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
+//            buffBaroCapNum[i][buffBaroCapNumWrite]++; //DEBUG
 		}
 //		n++;
 	} while(continueCheck);
-    if (buffBaroCapNumWrite >= (NUM_BARO_CAPTURES - 1))//DEBUG
-    {
-        buffBaroCapNumWrite = 0 ;
-    }
-    else
-    {
-        buffBaroCapNumWrite++;//DEBUG
-	}
+//    if (buffBaroCapNumWrite >= (NUM_BARO_CAPTURES - 1))//DEBUG
+//    {
+//        buffBaroCapNumWrite = 0 ;
+//    }
+//    else
+//    {
+//        buffBaroCapNumWrite++;//DEBUG
+//	}
     //TODO Packing of Baro values along with thers like voltage.  For now just dump it to stream
 //	UART_HR_Data_PutChar(DUMP_HEAD);
 //	UART_HR_Data_PutChar(n);
@@ -1963,51 +1964,67 @@ CY_ISR(ISRBaroCap)
     {
         uint8 n = i << 1;
         uint16 temp16;
-        uint16 last16 =(uint16)(curBaroTempCnt[i] & 0xFFFF);
-        uint8 numRollover = 0;
+//        uint16 last16 =(uint16)(curBaroTempCnt[i] & 0xFFFF);
+        uint16 last16 = buffBaroCap[n][WRAPDEC( buffBaroCapRead[n] , NUM_BARO_CAPTURES)];
+//        uint8 numRollover = 0;
         while(buffBaroCapRead[n] != buffBaroCapWrite[n])
         {
             temp16 = buffBaroCap[n][buffBaroCapRead[n]];
             if ( last16 > temp16)
             {
 //                curBaroTempCnt[i] += 0x10000; // rollover, increment upper MSB
-                numRollover++;
-            }
-            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
-            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
-            {
-                curBaroTempCnt[i] &= 0xFFFF0000;
-                curBaroTempCnt[i] |= temp16;
+//                numRollover++;
+                curBaroTempCnt[i] += (uint32)(BARO_COUNT_MAX - last16); //add the rest of counter before rollover
+                curBaroTempCnt[i] += (uint32)(temp16); //add counter after rollover
             }
             else
             {
-                last16 = temp16;
+                curBaroTempCnt[i] += (uint32)(temp16 - last16); //add counter after rollover
             }
+            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
+            last16 = temp16;
+//            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
+//            {
+//                curBaroTempCnt[i] &= 0xFFFF0000;
+//                curBaroTempCnt[i] |= temp16;
+//            }
+//            else
+//            {
+//                last16 = temp16;
+//            }
         }
-        for (uint8 x=0;x<numRollover; x++) curBaroTempCnt[i] += 0xFFFE; // period of the 16 bit counter maxes out at 65534 so add that per rollover, counter immediately turns to 0 at that count and counts up to 1 next baro pulse
+//        for (uint8 x=0;x<numRollover; x++) curBaroTempCnt[i] += 0xFFFE; // period of the 16 bit counter maxes out at 65534 so add that per rollover, counter immediately turns to 0 at that count and counts up to 1 next baro pulse
         n++;
-        last16 =(uint16)(curBaroPresCnt[i] & 0xFFFF);
-        numRollover = 0;
+        last16 = buffBaroCap[n][WRAPDEC( buffBaroCapRead[n] , NUM_BARO_CAPTURES)];
+//        last16 =(uint16)(curBaroPresCnt[i] & 0xFFFF);
+//        numRollover = 0;
         while(buffBaroCapRead[n] != buffBaroCapWrite[n])
         {
             temp16 = buffBaroCap[n][buffBaroCapRead[n]];
             if ( last16 > temp16)
             {
 //                curBaroPresCnt[i] += 0x10000; // rollover, increment upper MSB
-                numRollover++;
-            }
-            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
-            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
-            {
-                curBaroPresCnt[i] &= 0xFFFF0000;
-                curBaroPresCnt[i] |= temp16;
+//                numRollover++;
+                curBaroPresCnt[i] += (uint32)(BARO_COUNT_MAX - last16); //add the rest of counter before rollover
+                curBaroPresCnt[i] += (uint32)(temp16); //add counter after rollover
             }
             else
             {
-                last16 = temp16;
+                curBaroPresCnt[i] += (uint32)(temp16 - last16); //add counter after rollover
             }
+            buffBaroCapRead[n] = WRAPINC( buffBaroCapRead[n] , NUM_BARO_CAPTURES);
+            last16 = temp16;
+//            if (buffBaroCapRead[n] == buffBaroCapWrite[n])
+//            {
+//                curBaroPresCnt[i] &= 0xFFFF0000;
+//                curBaroPresCnt[i] |= temp16;
+//            }
+//            else
+//            {
+//                last16 = temp16;
+//            }
         }
-        for (uint8 x=0;x<numRollover; x++) curBaroPresCnt[i] += 0xFFFE; // period of the 16 bit counter maxes out at 65534 so add that per rollover, counter immediately turns to 0 at that count and counts up to 1 next baro pulse
+//        for (uint8 x=0;x<numRollover; x++) curBaroPresCnt[i] += 0xFFFE; // period of the 16 bit counter maxes out at 65534 so add that per rollover, counter immediately turns to 0 at that count and counts up to 1 next baro pulse
     }
 //	uint8 tmpSecs =  hkSecs << 1; //ISR is now 2Hz so need to adjust hkSecs to match
 	uint8 tmpSecs =  hkSecs << 2; //ISR is now 4Hz so need to adjust hkSecs to match
@@ -2058,10 +2075,13 @@ int main(void)
 	memset(buffSPICurHead, 0, NUM_SPI_DEV);
 	memset(buffSPICompleteHead, 0, NUM_SPI_DEV);
 	memset(buffUsbTx, 0, USBUART_BUFFER_SIZE);
-	memset(curBaroTemp, 0, NUM_BARO);
-	memset(curBaroPres, 0, NUM_BARO);
-	memset(curBaroTempCnt, 0, NUM_BARO);
-	memset(curBaroPresCnt, 0, NUM_BARO);
+	memset(curBaroTemp, 0, (sizeof(double) * NUM_BARO));
+	memset(curBaroPres, 0, (sizeof(double) *  NUM_BARO));
+	memset(curBaroTempCnt, 0, (sizeof(uint32) * NUM_BARO));
+	memset(curBaroPresCnt, 0, (sizeof(uint32) * NUM_BARO));
+	memset(buffBaroCap, 0, (sizeof(uint16) * (NUM_BARO * NUM_BARO_CAPTURES)));
+	memset(buffBaroCapRead, 0, NUM_BARO);
+	memset(buffBaroCapWrite, 0, NUM_BARO);
     memset(commandStatusC, WAIT_DLE, COMMAND_SOURCES);
     memset(buffCmdRxCRead, 0, COMMAND_SOURCES);
     memset(readBuffCmd, 0, COMMAND_SOURCES);
